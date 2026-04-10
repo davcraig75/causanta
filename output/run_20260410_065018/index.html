@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CAUSANTA Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background: #1a1a2e; color: #eee; }
+        h1 { color: #e94560; }
+        #vis { background: #16213e; padding: 10px; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <h1>CAUSANTA Tissue Simulation</h1>
+    <div id="vis"></div>
+    <script>
+        vegaEmbed('#vis', 'visualization.vg.json', {
+            theme: 'dark',
+            actions: { export: true, source: true, editor: true }
+        }).catch(console.error);
+    </script>
+</body>
+</html>
