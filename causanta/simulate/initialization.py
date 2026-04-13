@@ -293,6 +293,10 @@ def seed_tumor(
 
     for seed in config.tumor_seeds:
         # Clear any existing cell at tumor position
+        existing = population.get_neighbors(seed.x, seed.y, 1)
+        for neighbor in existing:
+            if neighbor.x == seed.x and neighbor.y == seed.y:
+                population.remove_cell(neighbor.cell_id)
         cid = population.allocate_id()
         cargo_str = ";".join(seed.ecDNA_cargo)
         cell = create_cell(

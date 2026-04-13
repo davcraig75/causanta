@@ -258,11 +258,29 @@ def ges_algorithm(
 
         return total_score
 
+    def _would_create_cycle(parents: dict[int, set[int]], source: int, target: int) -> bool:
+        """Check if adding source -> target would create a cycle via DFS."""
+        # A cycle exists if target can already reach source through existing edges
+        visited = set()
+        stack = [source]
+        while stack:
+            node = stack.pop()
+            if node == target:
+                return True
+            if node in visited:
+                continue
+            visited.add(node)
+            # Follow edges: node's parents are nodes that point TO node
+            # We need to check if source is reachable FROM target
+            # i.e., follow parent edges from source upward
+            stack.extend(parents.get(node, set()))
+        return False
+
     # Initialize empty graph
     parents: dict[int, set[int]] = {j: set() for j in range(p)}
     current_score = bic_score(parents)
 
-    # Forward phase: add edges
+    # Forward phase: add edges (with acyclicity enforcement)
     improved = True
     while improved:
         improved = False
@@ -272,6 +290,10 @@ def ges_algorithm(
         for j in range(p):
             for i in range(p):
                 if i == j or i in parents[j]:
+                    continue
+
+                # Skip if adding i -> j would create a cycle
+                if _would_create_cycle(parents, i, j):
                     continue
 
                 # Try adding i -> j
@@ -348,6 +370,7 @@ def discover_causal_structure(
     if variables is None:
         variables = [
             "ecDNA_count",
+            "egfr_expression",
             "O2_local",
             "glucose_local",
             "VEGF_secretion",

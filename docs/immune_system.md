@@ -93,10 +93,10 @@ All parameters are set in the `immune_recruitment` section of the JSON configura
 
 | Parameter | Default | Unit | Description |
 |-----------|---------|------|-------------|
-| `kill_radius_um` | 20.0 | um | Distance to detect potential targets |
-| `synapse_formation_time_hr` | 1.5 | hr | Time for immunological synapse to form (1-2 hr literature) |
-| `kill_probability_per_synapse` | 0.7 | probability | P(kill) once synapse is complete (~70% experimental) |
-| `min_contact_for_kill_hr` | 0.5 | hr | Minimum contact before any kill possible |
+| `kill_radius_um` | 15.0 | um | Distance to detect potential targets |
+| `synapse_formation_time_hr` | 2.5 | hr | Time for immunological synapse to form (GBM: slower) |
+| `kill_probability_per_synapse` | 0.25 | probability | P(kill) once synapse is complete (GBM: immunosuppressed) |
+| `min_contact_for_kill_hr` | 1.5 | hr | Minimum contact before any kill possible |
 
 **The killing process:**
 ```
@@ -116,10 +116,10 @@ Else:
 
 | Parameter | Default | Unit | Description |
 |-----------|---------|------|-------------|
-| `max_kills_before_exhaustion` | 10 | count | CTLs exhaust after ~10 serial kills |
-| `exhaustion_per_kill` | 0.1 | fraction | Exhaustion increment per kill (0.1 = 10 kills to full exhaustion) |
-| `exhaustion_recovery_rate_per_hr` | 0.02 | 1/hr | Slow recovery when not in contact |
-| `exhausted_kill_penalty` | 0.5 | fraction | Kill probability multiplier when fully exhausted |
+| `max_kills_before_exhaustion` | 3 | count | CTLs exhaust after ~3 serial kills (GBM: rapid exhaustion) |
+| `exhaustion_per_kill` | 0.35 | fraction | Exhaustion increment per kill (0.35 = ~3 kills to full exhaustion) |
+| `exhaustion_recovery_rate_per_hr` | 0.005 | 1/hr | Very slow recovery (GBM: sustained suppression) |
+| `exhausted_kill_penalty` | 0.8 | fraction | Kill probability multiplier when fully exhausted |
 
 **Exhaustion model:**
 ```python

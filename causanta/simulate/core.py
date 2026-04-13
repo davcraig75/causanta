@@ -241,7 +241,7 @@ class Simulation:
 
             # Generate comprehensive report
             print("Generating report...")
-            report_path = generate_report(data_dir, self.config, elapsed)
+            report_path = generate_report(reports_dir, self.config, elapsed)
             print(f"  Report: {report_path}")
 
     def _step_environment(self) -> None:

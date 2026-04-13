@@ -289,6 +289,12 @@ def accumulate_sources_and_sinks(
     VEGF_source = np.zeros((ny, nx))
     lactate_source = np.zeros((ny, nx))
 
+    # NOTE ON UNITS: The reaction terms below mix physical units (mmHg, mM,
+    # amol/hr) without explicit conversion factors. The source/sink terms are
+    # phenomenological — parameter values are tuned for qualitative behavior,
+    # not dimensional consistency. This is acceptable for a causal benchmark
+    # but means parameters cannot be interpreted as literal physical quantities.
+
     # Vascular supply (vectorized over grid)
     O2_source += config.environment.q_O2_transfer_per_hr * env.vascular_density * (
         config.environment.O2_blood_mmHg - env.O2

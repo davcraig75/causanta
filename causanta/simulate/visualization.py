@@ -230,7 +230,7 @@ def write_html_viewer(output_dir: Path) -> Path:
     <h1>CAUSANTA Tissue Simulation</h1>
     <div id="vis"></div>
     <script>
-        vegaEmbed('#vis', 'visualization.vg.json', {
+        vegaEmbed('#vis', '../figures/simulation.vl.json', {
             theme: 'dark',
             actions: { export: true, source: true, editor: true }
         }).catch(console.error);

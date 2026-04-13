@@ -202,9 +202,16 @@ def estimate_iv_effects(
 
         Y = np.array([c[outcome_name] for c in tumor_cells], dtype=float)
 
-        # Treatment variable (endogenous): could be ecDNA itself
-        # or a derived expression variable
-        D = Z  # For simplicity, use ecDNA as both instrument and treatment
+        # Treatment variable (endogenous): EGFR expression (instrumented by ecDNA)
+        # This is the correct IV setup: Z=ecDNA (instrument), D=EGFR (treatment)
+        if "egfr_expression" in tumor_cells[0] and tumor_cells[0]["egfr_expression"] > 0:
+            D = np.array([c["egfr_expression"] for c in tumor_cells], dtype=float)
+            treatment_name = "egfr_expression"
+        else:
+            # Fallback: reduced-form analysis (ecDNA as both Z and D)
+            # This collapses 2SLS to OLS — results should be interpreted with caution
+            D = Z
+            treatment_name = "ecDNA_count"
 
         # Run 2SLS
         try:
@@ -221,8 +228,8 @@ def estimate_iv_effects(
 
             results.append(IVEstimate(
                 outcome_name=outcome_name,
-                treatment_name="ecDNA_count",
-                instrument_name="ecDNA_segregation",
+                treatment_name=treatment_name,
+                instrument_name="ecDNA_count",
                 first_stage_coef=first_coef,
                 first_stage_se=first_se,
                 first_stage_f_stat=f_stat,

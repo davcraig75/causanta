@@ -170,7 +170,7 @@ def check_apoptosis(cell: Cell, tp: CellTypeConfig, rng: np.random.Generator) ->
     if tp.apoptosis_rate_per_hr <= 0:
         return False
     rate = modulate_apoptosis_rate(
-        tp.apoptosis_rate_per_hr, cell.ecDNA_count, tp.ecDNA_effect_on_survival
+        tp.apoptosis_rate_per_hr, cell.egfr_expression, tp.ecDNA_effect_on_survival
     )
     return rng.random() < rate
 
@@ -209,6 +209,12 @@ def check_immune_kill(
         True if immune cell kills tumor cell this step
     """
     ir = config.immune_recruitment
+
+    # Check hard exhaustion cap
+    if immune_cell.kills_performed >= ir.max_kills_before_exhaustion:
+        immune_cell.contact_target_id = -1
+        immune_cell.contact_duration_hr = 0.0
+        return False
 
     # Check activation threshold
     if immune_cell.activation_level < ir.min_activation_for_kill:
@@ -424,7 +430,7 @@ def advance_cell_cycle(
         cell.cycle_clock_hr = 0.0
         base_time = tp.division_time_mean_hr
         effective_time = modulate_division_time(
-            base_time, cell.ecDNA_count, tp.ecDNA_effect_on_division
+            base_time, cell.egfr_expression, tp.ecDNA_effect_on_division
         )
         cell.total_cycle_time_hr = max(
             1.0, rng.normal(effective_time, tp.division_time_std_hr)
@@ -580,13 +586,19 @@ def compute_migration(
         vx += tp.chemotaxis_VEGF * grad[0]
         vy += tp.chemotaxis_VEGF * grad[1]
 
-    # 3. Haptotaxis (ECM gradient)
+    # 3. Immune cell chemotaxis (lactate + VEGF as tumor-proximity signals)
+    if cell.cell_type in (RECRUITED_IMMUNE, MICROGLIA) and cell.is_reactive:
+        cx, cy = compute_immune_chemotaxis(cell, tp, env, domain, population)
+        vx += cx
+        vy += cy
+
+    # 4. Haptotaxis (ECM gradient)
     if tp.haptotaxis_ECM != 0:
         grad = domain.compute_gradient(env.ECM_density, cell.x, cell.y)
         vx += tp.haptotaxis_ECM * grad[0]
         vy += tp.haptotaxis_ECM * grad[1]
 
-    # 4. Random noise
+    # 5. Random noise
     noise_angle = rng.uniform(0, 2 * math.pi)
     noise_strength = 0.3
     vx += noise_strength * math.cos(noise_angle)

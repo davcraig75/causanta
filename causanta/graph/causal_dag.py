@@ -80,6 +80,7 @@ class CausalEdge:
             param=f"{self.parameter_symbol}={self.parameter_value:.3f}",
             source=self.source,
             target=self.target,
+            base="base",
         )
 
     def to_dict(self) -> dict[str, Any]:

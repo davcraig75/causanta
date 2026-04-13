@@ -158,7 +158,7 @@ division_time = beta_0 + beta_1 * gene_expr_hat + epsilon
 
 **Interpretation:** beta_1 is the **causal effect** of gene expression on division time. Confounding is removed because we only use variation in expression that comes from the random instrument.
 
-**In CAUSANTA:** Since gene expression is modeled implicitly (ecDNA directly affects phenotype), we can use ecDNA as both instrument and exposure in a "reduced form" analysis.
+**In CAUSANTA:** The simulator explicitly computes EGFR expression from ecDNA copy number. The instrument is ecDNA (random segregation), the exposure is EGFR expression (gene dosage), and the outcomes are phenotypic behaviors. The analysis tools use this full causal chain: Z=ecDNA, D=EGFR, Y=outcome.
 
 ### Method 3: Sibling Comparison
 

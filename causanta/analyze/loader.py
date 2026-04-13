@@ -87,6 +87,7 @@ def load_cells_tsv(filepath: Path) -> list[dict]:
                 "glucose_local": float(row["glucose_local"]),
                 "is_hypoxic": row["is_hypoxic"] == "True",
                 "is_quiescent": row.get("is_quiescent", "False") == "True",
+                "egfr_expression": float(row.get("egfr_expression", 0)),
                 "migration_rate": float(row.get("migration_rate", 0)),
                 "VEGF_secretion": float(row.get("VEGF_secretion", 0)),
                 "generation": int(row["generation"]),

@@ -142,14 +142,13 @@ def estimate_beta(
 ) -> EffectEstimate:
     """Estimate β (ecDNA effect on VEGF) from cell snapshot data.
 
-    Uses the relationship: S_eff = S_base * (1 + β * ecDNA)
-
-    Rearranging: β = (S_eff/S_base - 1) / ecDNA
-
-    We regress VEGF_secretion on ecDNA_count for tumor cells.
+    Simulator uses: S_eff = S_base * (1 + β * sqrt(EGFR))
+    Rearranging: VEGF / S_base - 1 = β * sqrt(EGFR)
+    So regress (VEGF/S_base - 1) on sqrt(EGFR) to get β.
     """
     # Filter to tumor cells with VEGF data
-    tumor_cells = [c for c in cells_data if c["cell_type"] == 6 and c["ecDNA_count"] > 0]
+    tumor_cells = [c for c in cells_data if c["cell_type"] == 6
+                   and c.get("egfr_expression", 0) > 0]
 
     if len(tumor_cells) < 2:
         return EffectEstimate(
@@ -159,26 +158,21 @@ def estimate_beta(
             estimated_value=0.0,
             standard_error=0.0,
             n_observations=len(tumor_cells),
-            method="linear_regression",
+            method="sqrt_egfr_regression",
             notes="Insufficient tumor cells for estimation",
         )
 
-    # Extract data
-    ecDNA = np.array([c["ecDNA_count"] for c in tumor_cells], dtype=float)
+    # Use sqrt(EGFR) as regressor to match simulator's functional form
+    sqrt_egfr = np.array([math.sqrt(c["egfr_expression"]) for c in tumor_cells])
     vegf = np.array([c["VEGF_secretion"] for c in tumor_cells], dtype=float)
 
-    # Linear regression: VEGF = S_base * (1 + β * ecDNA)
-    # Rearranged: VEGF = S_base + S_base * β * ecDNA
-    # So slope = S_base * β, intercept = S_base
-    # Therefore β = slope / intercept
-
-    n = len(ecDNA)
-    mean_x = np.mean(ecDNA)
+    # Regression: VEGF = S_base + S_base * β * sqrt(EGFR)
+    n = len(sqrt_egfr)
+    mean_x = np.mean(sqrt_egfr)
     mean_y = np.mean(vegf)
 
-    # Compute slope and intercept
-    numerator = np.sum((ecDNA - mean_x) * (vegf - mean_y))
-    denominator = np.sum((ecDNA - mean_x) ** 2)
+    numerator = np.sum((sqrt_egfr - mean_x) * (vegf - mean_y))
+    denominator = np.sum((sqrt_egfr - mean_x) ** 2)
 
     if denominator == 0:
         return EffectEstimate(
@@ -188,21 +182,17 @@ def estimate_beta(
             estimated_value=0.0,
             standard_error=0.0,
             n_observations=n,
-            method="linear_regression",
-            notes="No variance in ecDNA counts",
+            method="sqrt_egfr_regression",
+            notes="No variance in EGFR expression",
         )
 
     slope = numerator / denominator
+    # slope = S_base * β, so β = slope / S_base
+    estimated_beta = slope / base_vegf_secretion if base_vegf_secretion > 0 else 0.0
+
+    # Standard error
     intercept = mean_y - slope * mean_x
-
-    # Estimate β = slope / intercept (when intercept ≈ S_base)
-    if abs(intercept) > 1e-10 and base_vegf_secretion > 0:
-        estimated_beta = slope / base_vegf_secretion
-    else:
-        estimated_beta = 0.0
-
-    # Compute standard error of slope
-    residuals = vegf - (intercept + slope * ecDNA)
+    residuals = vegf - (intercept + slope * sqrt_egfr)
     mse = np.sum(residuals ** 2) / (n - 2) if n > 2 else 0.0
     se_slope = np.sqrt(mse / denominator) if denominator > 0 else 0.0
     se_beta = se_slope / base_vegf_secretion if base_vegf_secretion > 0 else 0.0
@@ -210,12 +200,12 @@ def estimate_beta(
     return EffectEstimate(
         parameter_symbol="β",
         parameter_name="ecDNA_effect_on_VEGF",
-        configured_value=0.0,  # Will be filled by caller
+        configured_value=0.0,
         estimated_value=estimated_beta,
         standard_error=se_beta,
         n_observations=n,
-        method="linear_regression",
-        notes=f"Regression: VEGF = {intercept:.1f} + {slope:.3f} * ecDNA",
+        method="sqrt_egfr_regression",
+        notes=f"Regression: VEGF = {intercept:.1f} + {slope:.3f} * sqrt(EGFR)",
     )
 
 
@@ -225,10 +215,14 @@ def estimate_delta(
 ) -> EffectEstimate:
     """Estimate δ (ecDNA effect on migration) from cell snapshot data.
 
-    Uses the relationship: v_eff = v_base * (1 + δ * ecDNA)
+    Simulator uses: v_eff = v_base * (1 + δ * EGFR) * hypoxia_mult
+    To remove hypoxia confounding, we filter to normoxic cells only.
+    Then: speed = v_base + v_base * δ * EGFR, so δ = slope / v_base.
     """
-    # Filter to tumor cells
-    tumor_cells = [c for c in cells_data if c["cell_type"] == 6 and c["ecDNA_count"] > 0]
+    # Filter to normoxic tumor cells to remove Go-or-Grow confounding
+    tumor_cells = [c for c in cells_data if c["cell_type"] == 6
+                   and c.get("egfr_expression", 0) > 0
+                   and not c.get("is_hypoxic", False)]
 
     if len(tumor_cells) < 2:
         return EffectEstimate(
@@ -238,19 +232,19 @@ def estimate_delta(
             estimated_value=0.0,
             standard_error=0.0,
             n_observations=len(tumor_cells),
-            method="linear_regression",
-            notes="Insufficient tumor cells for estimation",
+            method="egfr_regression_normoxic",
+            notes="Insufficient normoxic tumor cells for estimation",
         )
 
-    ecDNA = np.array([c["ecDNA_count"] for c in tumor_cells], dtype=float)
+    egfr = np.array([c["egfr_expression"] for c in tumor_cells], dtype=float)
     migration = np.array([c["migration_rate"] for c in tumor_cells], dtype=float)
 
-    n = len(ecDNA)
-    mean_x = np.mean(ecDNA)
+    n = len(egfr)
+    mean_x = np.mean(egfr)
     mean_y = np.mean(migration)
 
-    numerator = np.sum((ecDNA - mean_x) * (migration - mean_y))
-    denominator = np.sum((ecDNA - mean_x) ** 2)
+    numerator = np.sum((egfr - mean_x) * (migration - mean_y))
+    denominator = np.sum((egfr - mean_x) ** 2)
 
     if denominator == 0 or base_migration_speed == 0:
         return EffectEstimate(
@@ -260,15 +254,16 @@ def estimate_delta(
             estimated_value=0.0,
             standard_error=0.0,
             n_observations=n,
-            method="linear_regression",
-            notes="No variance in ecDNA or zero base speed",
+            method="egfr_regression_normoxic",
+            notes="No variance in EGFR or zero base speed",
         )
 
     slope = numerator / denominator
     intercept = mean_y - slope * mean_x
+    # slope = v_base * δ, so δ = slope / v_base
     estimated_delta = slope / base_migration_speed
 
-    residuals = migration - (intercept + slope * ecDNA)
+    residuals = migration - (intercept + slope * egfr)
     mse = np.sum(residuals ** 2) / (n - 2) if n > 2 else 0.0
     se_slope = np.sqrt(mse / denominator) if denominator > 0 else 0.0
     se_delta = se_slope / base_migration_speed
@@ -280,8 +275,8 @@ def estimate_delta(
         estimated_value=estimated_delta,
         standard_error=se_delta,
         n_observations=n,
-        method="linear_regression",
-        notes=f"Regression: speed = {intercept:.1f} + {slope:.3f} * ecDNA",
+        method="egfr_regression_normoxic",
+        notes=f"Regression on normoxic cells: speed = {intercept:.1f} + {slope:.3f} * EGFR",
     )
 
 
@@ -399,10 +394,15 @@ def analyze_ecDNA_segregation(lineage_data: list[dict]) -> dict[str, float]:
 
     for rec in lineage_data:
         n_before = rec["parent_ecDNA_before"]
+        n_after = rec["parent_ecDNA_after"]
         n_daughter = rec["daughter_ecDNA"]
-        if n_before > 0:
+        # The total post-replication pool is parent_after + daughter
+        # (replication happens during S-phase, then segregation at M-phase)
+        total_post_replication = n_after + n_daughter
+        if total_post_replication > 0:
             parent_before.append(n_before)
-            daughter_fractions.append(n_daughter / n_before)
+            # Daughter fraction of the post-replication pool should be ~0.5
+            daughter_fractions.append(n_daughter / total_post_replication)
 
     if not daughter_fractions:
         return {
@@ -412,14 +412,19 @@ def analyze_ecDNA_segregation(lineage_data: list[dict]) -> dict[str, float]:
             "expected_fraction": 0.5,
             "segregation_variance": 0.0,
             "expected_variance": 0.0,
+            "notes": "Fractions computed relative to post-replication pool",
         }
 
     mean_fraction = np.mean(daughter_fractions)
     var_fraction = np.var(daughter_fractions, ddof=1) if len(daughter_fractions) > 1 else 0.0
     mean_n = np.mean(parent_before)
 
-    # Expected variance for Binomial(N, 0.5) / N = 0.25/N
-    expected_var = 0.25 / mean_n if mean_n > 0 else 0.0
+    # Post-replication pool is ~2*N (with 95% replication fidelity)
+    # Expected variance for Binomial(2N, 0.5) / (2N) = 0.25/(2N)
+    mean_replicated = np.mean([rec["parent_ecDNA_after"] + rec["daughter_ecDNA"]
+                               for rec in lineage_data
+                               if rec["parent_ecDNA_after"] + rec["daughter_ecDNA"] > 0])
+    expected_var = 0.25 / mean_replicated if mean_replicated > 0 else 0.0
 
     return {
         "n_divisions": len(lineage_data),
@@ -428,6 +433,8 @@ def analyze_ecDNA_segregation(lineage_data: list[dict]) -> dict[str, float]:
         "expected_fraction": 0.5,
         "segregation_variance": float(var_fraction),
         "expected_variance": float(expected_var),
+        "mean_replicated_pool": float(mean_replicated),
+        "notes": "Fractions computed relative to post-replication pool (parent_after + daughter)",
     }
 
 

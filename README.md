@@ -225,6 +225,30 @@ python -m causanta.simulate.cleanup output/run_*/data --keep 0.02
 
 ---
 
+## Scope and Limitations
+
+CAUSANTA is a **causal inference benchmark prototype**, not a validated GBM tissue simulator.
+
+**What it is good for:**
+- Testing whether causal inference methods (2SLS, IV, propensity matching) recover known effects
+- Teaching causal inference concepts with biologically motivated examples
+- Generating spatially structured synthetic data with embedded ground truth
+
+**Known limitations:**
+- **Phenomenological physics**: Environment reaction terms mix units (mmHg, mM, amol/hr) without conversion. Parameter values are tuned for qualitative behavior, not physical accuracy.
+- **Single tumor state**: Real GBM has OPC-like, NPC-like, AC-like, and MES-like programs. CAUSANTA uses one generic tumor cell with ecDNA-driven modifiers.
+- **Single ecDNA axis**: Real GBM ecDNA can carry multiple oncogenes with distinct dynamics. CAUSANTA models one EGFR-like axis.
+- **Simplified tissue physics**: Endpoint collision detection rather than force-based mechanics. 2D section simulation without 3D-to-2D sectioning logic.
+- **No calibration pipeline**: Parameters are hand-set, not calibrated against experimental spatial data. No uncertainty quantification.
+
+**Future directions** (see `instructions.md` for detailed roadmap):
+- GBM state programs and niche-aware logic
+- Multi-oncogene ecDNA modeling
+- Calibration and ensemble benchmarking
+- Validation against measured GBM spatial patterns
+
+---
+
 ## Citation
 
 If you use CAUSANTA in your research, please cite:
