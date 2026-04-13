@@ -1,0 +1,3 @@
+[console_scripts]
+causanta-analyze = causanta.analyze.cli:main
+causanta-simulate = causanta.simulate.core:main
