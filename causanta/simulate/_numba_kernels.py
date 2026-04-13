@@ -203,9 +203,18 @@ def accumulate_cell_contributions(
         O2_sink[gj, gi] += type_O2_consumption[cell_type] / voxel_area
         glucose_sink[gj, gi] += type_glucose_consumption[cell_type] / voxel_area
 
-        # VEGF secretion (hypoxia-dependent)
-        if cell_VEGF_secretion[i] > 0 and cell_O2_local[i] < hypoxia_threshold:
-            VEGF_source[gj, gi] += cell_VEGF_secretion[i] / voxel_area
+        # VEGF secretion: basal + hypoxia-enhanced
+        # Tumor cells secrete some VEGF even under normoxia (EGFR effect)
+        # Hypoxia further upregulates via HIF-1α pathway
+        if cell_VEGF_secretion[i] > 0:
+            basal_fraction = 0.2  # 20% of max rate when normoxic
+            if cell_O2_local[i] < hypoxia_threshold:
+                # Hypoxic: full VEGF secretion
+                effective_rate = cell_VEGF_secretion[i]
+            else:
+                # Normoxic: basal VEGF only
+                effective_rate = cell_VEGF_secretion[i] * basal_fraction
+            VEGF_source[gj, gi] += effective_rate / voxel_area
 
         # Lactate production
         if type_lactate_production[cell_type] > 0:

@@ -11,6 +11,7 @@ import numpy as np
 
 from .config import CellTypeConfig, DEFAULT_SHAPE_PATHS
 from .domain import Domain
+from .ecdna import compute_egfr_expression
 from .shapes import get_effective_radius, check_shape_collision
 
 # Cell type ID constants
@@ -59,6 +60,8 @@ class Cell:
     # Genomic / ecDNA
     ecDNA_count: int = 0
     ecDNA_cargo: str = ""
+    # Gene expression (derived from ecDNA)
+    egfr_expression: float = 0.0  # EGFR expression level (arbitrary units)
     # Lineage
     generation: int = 0
     time_born_hr: float = 0.0
@@ -78,6 +81,14 @@ class Cell:
     is_reactive: bool = False
     activation_level: float = 0.0
     diameter: float = 10.0
+
+    # Immune cell state (for RECRUITED_IMMUNE and activated MICROGLIA)
+    # Contact tracking for immunological synapse formation
+    contact_target_id: int = -1  # ID of tumor cell being contacted (-1 = none)
+    contact_duration_hr: float = 0.0  # Time in contact with current target
+    # Exhaustion mechanics (CTLs can kill ~10 cells before exhaustion)
+    kills_performed: int = 0  # Number of successful kills
+    exhaustion_level: float = 0.0  # 0.0 = fresh, 1.0 = fully exhausted
 
 
 def create_cell(
@@ -105,6 +116,9 @@ def create_cell(
     if not shape_path:
         shape_path = DEFAULT_SHAPE_PATHS.get(type_name, "")
 
+    # Compute EGFR expression from ecDNA count (causal chain: ecDNA → EGFR → phenotypes)
+    egfr_expr = compute_egfr_expression(ecDNA_count, rng=rng, include_noise=True)
+
     # Initialize cell cycle if the cell can divide and is not in G0
     total_cycle_time = 0.0
     if type_params.can_divide and cell_cycle_phase != "G0":
@@ -125,6 +139,7 @@ def create_cell(
         total_cycle_time_hr=total_cycle_time,
         ecDNA_count=ecDNA_count,
         ecDNA_cargo=ecDNA_cargo,
+        egfr_expression=egfr_expr,
         generation=generation,
         time_born_hr=time_born_hr,
         migration_rate=type_params.migration_speed_um_hr,

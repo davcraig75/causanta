@@ -52,10 +52,41 @@ class AngiogenesisConfig:
 
 @dataclass(frozen=True)
 class ImmuneRecruitmentConfig:
-    chemokine_threshold: float = 0.5
-    recruitment_rate_per_hr: float = 0.005
-    kill_rate_per_hr: float = 0.01
-    kill_radius_um: float = 20.0
+    """Configuration for immune cell recruitment and killing dynamics.
+
+    Based on experimental literature:
+    - Immunological synapse formation: 1-2 hours (Huppa & Davis 2003, Dustin 2008)
+    - CTL serial killing capacity: ~10 cells before exhaustion (Boissonnas 2007)
+    - Chemotaxis sensitivity: follows CCL2/CCL5/CXCL10 gradients
+    - Kill probability: ~70% per successful synapse (varies with activation)
+    """
+
+    # Recruitment parameters
+    chemokine_threshold: float = 0.5  # Threshold for immune cell recruitment
+    recruitment_rate_per_hr: float = 0.005  # Rate of new immune cell entry
+
+    # Killing mechanics
+    kill_radius_um: float = 20.0  # Distance for detecting kill targets
+    synapse_formation_time_hr: float = 1.5  # Time to form immunological synapse (1-2 hrs)
+    kill_probability_per_synapse: float = 0.7  # P(kill) once synapse forms
+    min_contact_for_kill_hr: float = 0.5  # Minimum contact before any kill possible
+
+    # Exhaustion mechanics (CTL serial killing limits)
+    max_kills_before_exhaustion: int = 10  # CTLs exhaust after ~10 kills
+    exhaustion_per_kill: float = 0.1  # Exhaustion increment per successful kill
+    exhaustion_recovery_rate_per_hr: float = 0.02  # Slow recovery when not killing
+    exhausted_kill_penalty: float = 0.5  # Kill probability multiplier when exhausted
+
+    # Activation dynamics
+    activation_radius_um: float = 50.0  # Distance to detect tumor for activation
+    activation_rate_per_hr: float = 0.3  # Rate of activation when near tumor
+    deactivation_rate_per_hr: float = 0.05  # Rate of deactivation when away from tumor
+    min_activation_for_kill: float = 0.2  # Minimum activation level to attempt kill
+
+    # Chemotaxis parameters
+    chemokine_diffusion_um2_hr: float = 1800.0  # ~0.5 um²/s typical for chemokines
+    chemokine_decay_per_hr: float = 0.5  # Half-life ~1.4 hours
+    tumor_chemokine_secretion: float = 1.0  # Relative secretion rate from tumor cells
 
 
 @dataclass(frozen=True)
@@ -246,8 +277,21 @@ def load_config(json_path: str | Path) -> SimulationConfig:
     immune = ImmuneRecruitmentConfig(
         chemokine_threshold=immune_data.get("chemokine_threshold", 0.5),
         recruitment_rate_per_hr=immune_data.get("recruitment_rate_per_hr", 0.005),
-        kill_rate_per_hr=immune_data.get("kill_rate_per_hr", 0.01),
         kill_radius_um=immune_data.get("kill_radius_um", 20.0),
+        synapse_formation_time_hr=immune_data.get("synapse_formation_time_hr", 1.5),
+        kill_probability_per_synapse=immune_data.get("kill_probability_per_synapse", 0.7),
+        min_contact_for_kill_hr=immune_data.get("min_contact_for_kill_hr", 0.5),
+        max_kills_before_exhaustion=immune_data.get("max_kills_before_exhaustion", 10),
+        exhaustion_per_kill=immune_data.get("exhaustion_per_kill", 0.1),
+        exhaustion_recovery_rate_per_hr=immune_data.get("exhaustion_recovery_rate_per_hr", 0.02),
+        exhausted_kill_penalty=immune_data.get("exhausted_kill_penalty", 0.5),
+        activation_radius_um=immune_data.get("activation_radius_um", 50.0),
+        activation_rate_per_hr=immune_data.get("activation_rate_per_hr", 0.3),
+        deactivation_rate_per_hr=immune_data.get("deactivation_rate_per_hr", 0.05),
+        min_activation_for_kill=immune_data.get("min_activation_for_kill", 0.2),
+        chemokine_diffusion_um2_hr=immune_data.get("chemokine_diffusion_um2_hr", 1800.0),
+        chemokine_decay_per_hr=immune_data.get("chemokine_decay_per_hr", 0.5),
+        tumor_chemokine_secretion=immune_data.get("tumor_chemokine_secretion", 1.0),
     )
 
     # Cell types

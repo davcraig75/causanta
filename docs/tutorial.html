@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Causal Inference Tutorial - CAUSANTA</title>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<h1>Causal Inference with CAUSANTA</h1>
+
+<h2>A Practical Tutorial on Identifying Causal Effects in Spatial Biology</h2>
+
+<p>This tutorial teaches <strong>causal inference</strong> concepts using CAUSANTA as a training ground. You'll learn to:</p>
+
+<ol>
+    <li>Distinguish correlation from causation in biological data</li>
+    <li>Use instrumental variables (IV) to identify causal effects</li>
+    <li>Apply Two-Stage Least Squares (2SLS) regression</li>
+    <li>Validate causal methods against known ground truth</li>
+</ol>
+
+<hr>
+
+<h2>The Problem: Correlation is Not Causation</h2>
+
+<h3>A Motivating Example</h3>
+
+<p>You observe tumor cells with more EGFR expression migrate faster. Is this causal?</p>
+
+<p><strong>The naive interpretation</strong>: <em>EGFR causes faster migration</em>.</p>
+
+<p><strong>But wait</strong> &mdash; what if both are caused by hypoxia?</p>
+
+<ul>
+    <li>Hypoxia &rarr; Increased EGFR (HIF-1&alpha; stabilization)</li>
+    <li>Hypoxia &rarr; Increased migration (Go-or-Grow)</li>
+</ul>
+
+<p>This is <strong>confounding</strong>. The EGFR-migration correlation might be entirely spurious.</p>
+
+<h3>The Confounding Problem</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th>Variable</th>
+            <th>Role</th>
+            <th>Effect</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Hypoxia</td>
+            <td>Confounder</td>
+            <td>Causes both EGFR and migration</td>
+        </tr>
+        <tr>
+            <td>EGFR</td>
+            <td>Exposure</td>
+            <td>May or may not cause migration</td>
+        </tr>
+        <tr>
+            <td>Migration</td>
+            <td>Outcome</td>
+            <td>What we're trying to predict</td>
+        </tr>
+    </tbody>
+</table>
+
+<p><strong>Standard regression can't tell you</strong> whether the EGFR-migration relationship is real. Even if you control for observed confounders, there might be unobserved ones.</p>
+
+<hr>
+
+<h2>The Solution: Instrumental Variables</h2>
+
+<h3>What is an Instrument?</h3>
+
+<p>An <strong>instrumental variable (IV)</strong> is something that:</p>
+
+<ol>
+    <li><strong>Affects the exposure</strong> (EGFR expression)</li>
+    <li><strong>Is as-if random</strong> (not caused by confounders)</li>
+    <li><strong>Only affects the outcome through the exposure</strong> (exclusion restriction)</li>
+</ol>
+
+<p>If we find such a variable, we can use it to isolate the causal effect.</p>
+
+<h3>ecDNA as a Natural Experiment</h3>
+
+<p>In CAUSANTA, <strong>extrachromosomal DNA (ecDNA) copy number</strong> is a perfect instrument:</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Property</th>
+            <th>Why ecDNA Satisfies It</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Relevance</td>
+            <td>ecDNA carries EGFR oncogene &rarr; more copies = more EGFR expression</td>
+        </tr>
+        <tr>
+            <td>Independence</td>
+            <td>ecDNA segregates via <code>Binomial(N, 0.5)</code> at mitosis &mdash; essentially random</td>
+        </tr>
+        <tr>
+            <td>Exclusion</td>
+            <td>ecDNA affects cells <em>only through</em> gene expression</td>
+        </tr>
+    </tbody>
+</table>
+
+<p>The binomial segregation is key: when a cell with 20 ecDNA copies divides, each daughter gets <code>Binomial(20, 0.5)</code> copies &mdash; anywhere from 0 to 20. This randomness is like nature running a controlled experiment!</p>
+
+<h3>The Causal Structure</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th>Node</th>
+            <th>Type</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>ecDNA_count</td>
+            <td>Instrument</td>
+            <td>Random segregation at mitosis</td>
+        </tr>
+        <tr>
+            <td>EGFR_expression</td>
+            <td>Exposure</td>
+            <td>Determined by gene dosage</td>
+        </tr>
+        <tr>
+            <td>Migration, Proliferation, VEGF</td>
+            <td>Outcomes</td>
+            <td>Affected by EGFR expression</td>
+        </tr>
+        <tr>
+            <td>O2_local (Hypoxia)</td>
+            <td>Confounder</td>
+            <td>Affects outcomes but NOT ecDNA</td>
+        </tr>
+    </tbody>
+</table>
+
+<p>Hypoxia confounds the EGFR-Outcome relationships, but it <strong>cannot affect ecDNA counts</strong> because segregation is random. This breaks the confounding!</p>
+
+<hr>
+
+<h2>Two-Stage Least Squares (2SLS)</h2>
+
+<h3>The Method</h3>
+
+<p>2SLS uses the instrument to isolate causal variation:</p>
+
+<h4>Stage 1: Predict exposure from instrument</h4>
+<pre><code>EGFR_expression = gamma_0 + gamma_1 * ecDNA_count + epsilon_1</code></pre>
+
+<p>This captures only the variation in EGFR that's <em>caused by</em> ecDNA (the random part).</p>
+
+<h4>Stage 2: Regress outcome on predicted exposure</h4>
+<pre><code>Migration_speed = beta_0 + beta_1 * EGFR_predicted + epsilon_2</code></pre>
+
+<p>The coefficient &beta;<sub>1</sub> is the <strong>causal effect</strong> of EGFR on migration.</p>
+
+<h3>Why Does This Work?</h3>
+
+<p>The key insight: <code>EGFR_predicted</code> contains only variation from ecDNA, which is random. Any correlation between <code>EGFR_predicted</code> and migration must be causal, because the randomness ensures no confounding.</p>
+
+<h3>Mathematical Intuition</h3>
+
+<p>If we denote:</p>
+<ul>
+    <li>Z = ecDNA (instrument)</li>
+    <li>X = EGFR expression (exposure)</li>
+    <li>Y = Migration (outcome)</li>
+    <li>U = Hypoxia (confounder)</li>
+</ul>
+
+<p>The problem with OLS: <code>Cov(X, U) &ne; 0</code> (EGFR is correlated with hypoxia)</p>
+
+<p>2SLS solution: Use X&#x0302; = E[X|Z] instead. Since <code>Cov(Z, U) = 0</code> (ecDNA is random), we have <code>Cov(X&#x0302;, U) = 0</code>.</p>
+
+<p>The 2SLS estimator:</p>
+<pre><code>beta_IV = Cov(Y, Z) / Cov(X, Z)</code></pre>
+
+<p>This is the ratio of "how much does the outcome change with the instrument" to "how much does the exposure change with the instrument."</p>
+
+<hr>
+
+<h2>Hands-On: Running the Analysis</h2>
+
+<h3>Step 1: Run a Simulation</h3>
+
+<pre><code>python -m causanta.simulate.core --hours 300 --seed 42</code></pre>
+
+<p>This generates a tumor with known causal parameters (set in <code>default.json</code>):</p>
+<ul>
+    <li><code>ecDNA_effect_on_division</code> = 0.30 (&alpha;)</li>
+    <li><code>ecDNA_effect_on_migration</code> = 0.05 (&delta;)</li>
+    <li><code>ecDNA_effect_on_VEGF</code> = 0.10 (&beta;)</li>
+</ul>
+
+<h3>Step 2: Load the Data</h3>
+
+<pre><code>import pandas as pd
+from pathlib import Path
+
+# Load final cell states
+data_dir = Path("output/run_20260413_093442/data")
+cells = pd.read_csv(data_dir / "cells_t000300.tsv", sep="\t")
+
+# Filter to tumor cells only
+tumor = cells[cells["cell_type"] == 6].copy()
+print(f"Tumor cells: {len(tumor)}")</code></pre>
+
+<h3>Step 3: Naive OLS (Wrong!)</h3>
+
+<pre><code>import numpy as np
+from scipy import stats
+
+# Naive regression: EGFR -> Migration
+X = tumor["egfr_expression"].values
+Y = tumor["migration_rate"].values
+
+slope, intercept, r, p, se = stats.linregress(X, Y)
+print(f"OLS estimate: {slope:.4f} (biased by confounding!)")</code></pre>
+
+<p>This gives a biased estimate because hypoxia confounds the relationship.</p>
+
+<h3>Step 4: 2SLS (Correct!)</h3>
+
+<pre><code># Stage 1: ecDNA -> EGFR
+Z = tumor["ecDNA_count"].values
+X = tumor["egfr_expression"].values
+
+gamma1, gamma0, _, _, _ = stats.linregress(Z, X)
+X_hat = gamma0 + gamma1 * Z  # Predicted EGFR
+
+# Stage 2: EGFR_predicted -> Migration
+Y = tumor["migration_rate"].values
+beta1, beta0, _, _, _ = stats.linregress(X_hat, Y)
+
+print(f"2SLS estimate: {beta1:.4f}")
+print(f"True effect: 0.05")  # From simulation parameters</code></pre>
+
+<h3>Step 5: Compare to Ground Truth</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th>Method</th>
+            <th>Estimate</th>
+            <th>True Value</th>
+            <th>Error</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>OLS</td>
+            <td>~0.12</td>
+            <td>0.05</td>
+            <td>140%</td>
+        </tr>
+        <tr>
+            <td>2SLS</td>
+            <td>~0.05</td>
+            <td>0.05</td>
+            <td>&lt;5%</td>
+        </tr>
+    </tbody>
+</table>
+
+<p>The 2SLS estimate should be much closer to the true value!</p>
+
+<hr>
+
+<h2>Checking Instrument Validity</h2>
+
+<h3>1. Relevance: F-Statistic</h3>
+
+<p>The first-stage F-statistic should be &gt; 10 (rule of thumb):</p>
+
+<pre><code># First stage regression
+from scipy import stats
+
+slope, intercept, r, p, se = stats.linregress(Z, X)
+n = len(Z)
+F = (r**2 / 1) / ((1 - r**2) / (n - 2))
+
+print(f"First-stage F = {F:.1f}")
+# Should be >> 10 for a strong instrument</code></pre>
+
+<h3>2. Independence: Visual Check</h3>
+
+<p>Plot ecDNA against potential confounders:</p>
+
+<pre><code># ecDNA should NOT correlate with O2
+r_o2, p_o2 = stats.pearsonr(
+    tumor["ecDNA_count"],
+    tumor["O2_local"]
+)
+print(f"ecDNA-O2 correlation: r={r_o2:.3f}, p={p_o2:.3f}")
+# Should be near zero and non-significant</code></pre>
+
+<h3>3. Exclusion: Domain Knowledge</h3>
+
+<p>This must be argued, not tested. In CAUSANTA, we <em>know</em> ecDNA only affects phenotypes through gene expression because we coded it that way. In real data, this requires biological reasoning.</p>
+
+<hr>
+
+<h2>The Go-or-Grow Example</h2>
+
+<h3>Biological Context</h3>
+
+<p>The <strong>Go-or-Grow hypothesis</strong> states that tumor cells trade off between proliferation and migration:</p>
+<ul>
+    <li>Well-oxygenated cells: Proliferate (Grow)</li>
+    <li>Hypoxic cells: Migrate (Go)</li>
+</ul>
+
+<p>This creates confounding because hypoxia affects both behaviors.</p>
+
+<h3>CAUSANTA Implementation</h3>
+
+<p>In the simulation:</p>
+<ul>
+    <li>Hypoxic cells get a 2x migration boost (<code>hypoxia_invasion_boost</code>)</li>
+    <li>Hypoxic cells can't proliferate (below O2 threshold)</li>
+    <li>EGFR expression independently modulates both</li>
+</ul>
+
+<h3>Disentangling Effects</h3>
+
+<p>Using 2SLS, we can separate:</p>
+<ol>
+    <li><strong>Direct EGFR effect on migration</strong>: The causal parameter &delta;</li>
+    <li><strong>Hypoxia effect</strong>: The Go-or-Grow response</li>
+</ol>
+
+<pre><code># Multiple regression with IV
+# Y = migration
+# X = EGFR (instrumented by ecDNA)
+# W = is_hypoxic (control variable)
+
+# This requires 2SLS with controls - see analysis_guide.html</code></pre>
+
+<hr>
+
+<h2>Summary: The Causal Inference Recipe</h2>
+
+<ol>
+    <li><strong>Identify the question</strong>: What causal effect do you want to estimate?</li>
+    <li><strong>Draw the DAG</strong>: Map out all variables and their relationships</li>
+    <li><strong>Find an instrument</strong>: Something that:
+        <ul>
+            <li>Affects the exposure</li>
+            <li>Is as-if random</li>
+            <li>Only works through the exposure</li>
+        </ul>
+    </li>
+    <li><strong>Run 2SLS</strong>:
+        <ul>
+            <li>Stage 1: Regress exposure on instrument</li>
+            <li>Stage 2: Regress outcome on predicted exposure</li>
+        </ul>
+    </li>
+    <li><strong>Check validity</strong>:
+        <ul>
+            <li>F-stat &gt; 10 (strong instrument)</li>
+            <li>No correlation with confounders</li>
+            <li>Exclusion restriction holds</li>
+        </ul>
+    </li>
+    <li><strong>Validate against ground truth</strong> (in simulation) or <strong>sensitivity analysis</strong> (in real data)</li>
+</ol>
+
+<hr>
+
+<h2>Further Reading</h2>
+
+<ul>
+    <li><strong><a href="analysis_guide.html">Analysis Guide</a></strong>: Detailed statistical methods</li>
+    <li><strong><a href="immune_system.html">Immune System</a></strong>: Tumor-immune dynamics</li>
+    <li><strong>Parameters Reference</strong>: <code>causanta/simulate/params/default.json</code></li>
+</ul>
+
+<h3>Key Papers</h3>
+
+<ul>
+    <li>Angrist &amp; Pischke (2009). <em>Mostly Harmless Econometrics</em></li>
+    <li>Pearl (2009). <em>Causality: Models, Reasoning, and Inference</em></li>
+    <li>Hern&aacute;n &amp; Robins (2020). <em>Causal Inference: What If</em></li>
+</ul>
+
+<hr>
+
+<h2>Exercises</h2>
+
+<ol>
+    <li><strong>Vary the effect size</strong>: Change <code>ecDNA_effect_on_migration</code> in <code>default.json</code> and verify 2SLS recovers the new value.</li>
+    <li><strong>Weak instrument</strong>: Set <code>ecDNA_segregation_p</code> to 0.99 (almost no variation). What happens to the 2SLS estimate?</li>
+    <li><strong>Multiple outcomes</strong>: Estimate causal effects on proliferation rate and VEGF secretion using the same instrument.</li>
+    <li><strong>Sensitivity analysis</strong>: How much would unmeasured confounding need to bias the instrument for your conclusions to change?</li>
+</ol>
+
+</body>
+</html>

@@ -1,0 +1,325 @@
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote,
+ul,
+ol,
+pre,
+table {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: "Aptos", Calibri, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.42;
+    color: #1F1F1F;
+    background-color: #FFFFFF;
+    margin: 10px 13px 10px 13px;
+}
+
+a {
+    color: #2467A6;
+}
+
+a:hover {
+    color: #1B5082;
+    text-decoration: none;
+}
+
+a img {
+    border: none;
+}
+
+p {
+    margin-bottom: 0.55em;
+    text-align: justify;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    line-height: 1.25;
+}
+
+/* Word Title style mapped to h6 for Markdown use */
+h6 {
+    margin: 1.6em 0 0.7em;
+    font-family: "Tisa Offc Serif Pro", "Tisa Pro", Georgia, Cambria, serif;
+    font-size: 0.95em;
+    font-weight: 700;
+    color: #000000;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+/* Heading 1: centered white text on COH blue bar */
+h1 {
+    margin: 0.2em 0 0.45em;
+    padding: 0.08em 0.55em 0.12em;
+    font-family: "Aptos SemiBold", "Aptos", Calibri, Arial, sans-serif;
+    font-size: 1.1em;
+    font-weight: 700;
+    color: #FFFFFF;
+    background-color: #2467A6;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+/* Heading 2: bold blue text with cyan left rule and light gray fill */
+h2 {
+    margin: 0.45em 0 0.3em;
+    padding: 0.06em 0.55em 0.08em 0.5em;
+    font-size: 1.1em;
+    font-weight: 700;
+    color: #2467A6;
+    background-color: #F2F2F2;
+    border-left: 6px solid #48ADD4;
+}
+
+/* Heading 3: blue text with pale blue underline */
+h3 {
+    margin: 0.35em 0 0.25em;
+    padding-bottom: 0.14em;
+    font-size: 1.1em;
+    font-weight: 700;
+    color: #367CB2;
+    border-bottom: 1px solid #95B3D7;
+}
+
+/* Reset Heading 4 lettering within higher-level sections */
+h1,
+h2,
+h3 {
+    counter-reset: coh-h4;
+}
+
+/* Heading 4: blue subsection heading with auto letter prefix */
+h4 {
+    margin: 0.35em 0 0.2em;
+    font-size: 1.1em;
+    font-weight: 700;
+    color: #367CB2;
+}
+
+h4:before {
+    counter-increment: coh-h4;
+    content: counter(coh-h4, upper-alpha) ". ";
+}
+
+/* Heading 5: indented lighter-weight blue heading */
+h5 {
+    margin: 0.2em 0 0.45em 1.35em;
+    font-size: 1.1em;
+    font-weight: 400;
+    color: #367CB2;
+}
+
+hr {
+    margin: 0 0 1.1em;
+    border: 0;
+    border-bottom: 1px solid #D9D9D9;
+}
+
+blockquote {
+    margin: 0 0 1em;
+    padding: 0.15em 0 0.15em 1em;
+    border-left: 4px solid #D9D9D9;
+    color: #555555;
+}
+
+blockquote p {
+    margin-bottom: 0;
+    text-align: left;
+}
+
+ul,
+ol {
+    margin: 0.15em 0 0.8em 1.55em;
+    padding-left: 0.4em;
+}
+
+ul ul,
+ul ol,
+ol ul,
+ol ol {
+    margin-top: 0.15em;
+    margin-bottom: 0.15em;
+}
+
+li {
+    margin: 0.12em 0;
+}
+
+li > p {
+    margin-bottom: 0.2em;
+    text-align: left;
+}
+
+ol {
+    list-style-type: decimal;
+}
+
+ol ol,
+ol ul ol,
+ul ol {
+    list-style-type: lower-alpha;
+}
+
+ol ol ol,
+ul ol ol,
+ol ul ol,
+ol ol ol ol,
+ul ol ol ol {
+    list-style-type: lower-alpha;
+}
+
+ul {
+    list-style-type: disc;
+}
+
+ul ul {
+    list-style-type: circle;
+}
+
+ul ul ul {
+    list-style-type: square;
+}
+
+li::marker {
+    color: #17365D;
+}
+
+ol ol > li::marker,
+ul ol > li::marker,
+ol ol > li::marker {
+    color: #244061;
+}
+
+code,
+pre {
+    font-family: Consolas, Monaco, "Andale Mono", "Courier New", monospace;
+}
+
+code {
+    background-color: #F2F2F2;
+    border: 1px solid #D9D9D9;
+    color: #1F1F1F;
+    padding: 0.08em 0.28em;
+    font-size: 0.9em;
+    border-radius: 2px;
+}
+
+pre {
+    display: block;
+    padding: 0.9em 1em;
+    margin: 0 0 1.1em;
+    line-height: 1.45;
+    font-size: 0.9em;
+    color: #CCCCCC;
+    background-color: #2D2D2D;
+    border: 1px solid #D9D9D9;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+pre code {
+    background-color: transparent;
+    color: inherit;
+    border: 0;
+    font-size: 1em;
+    padding: 0;
+}
+
+table {
+    width: 100%;
+    margin: 0.6em 0 1.1em;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+th,
+td {
+    border: 1px solid #FFFFFF;
+    padding: 0.3em 0.55em;
+    text-align: left;
+    vertical-align: middle;
+    word-wrap: break-word;
+}
+
+th {
+    background-color: #4F81BD;
+    color: #FFFFFF;
+    font-weight: 700;
+}
+
+tbody td {
+    background-color: #DBE5F1;
+    color: #1F1F1F;
+}
+
+tbody tr:nth-child(odd) td:not(:first-child) {
+    background-color: #B8CCE4;
+}
+
+tbody tr:nth-child(even) td:not(:first-child) {
+    background-color: #DBE5F1;
+}
+
+tbody td:first-child {
+    background-color: #4F81BD;
+    color: #FFFFFF;
+    font-weight: 700;
+}
+
+sup {
+    font-size: 0.83em;
+    vertical-align: super;
+    line-height: 0;
+}
+
+kbd {
+    display: inline-block;
+    padding: 3px 5px;
+    font-size: 11px;
+    line-height: 10px;
+    color: #555555;
+    vertical-align: middle;
+    background-color: #FCFCFC;
+    border: solid 1px #CCCCCC;
+    border-bottom-color: #BBBBBB;
+    border-radius: 3px;
+    box-shadow: inset 0 -1px 0 #BBBBBB;
+}
+
+* {
+    -webkit-print-color-adjust: exact;
+}
+
+@media screen and (min-width: 914px) {
+    body {
+        width: 854px;
+        margin: 12px auto;
+    }
+}
+
+@media print {
+    table,
+    pre {
+        page-break-inside: avoid;
+    }
+
+    body {
+        margin: 1.5cm;
+    }
+}

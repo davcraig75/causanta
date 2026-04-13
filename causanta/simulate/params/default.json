@@ -63,10 +63,30 @@
   },
 
   "immune_recruitment": {
-    "chemokine_threshold": 0.5,
-    "recruitment_rate_per_hr": 0.005,
-    "kill_rate_per_hr": 0.0,
-    "kill_radius_um": 20.0
+    "_comment": "GBM-realistic immunosuppressive tumor microenvironment (TME)",
+    "_note": "GBM is highly immunosuppressive - tumors typically evade immune control",
+
+    "chemokine_threshold": 2.0,
+    "recruitment_rate_per_hr": 0.003,
+    "kill_radius_um": 15.0,
+
+    "synapse_formation_time_hr": 2.5,
+    "kill_probability_per_synapse": 0.25,
+    "min_contact_for_kill_hr": 1.5,
+
+    "max_kills_before_exhaustion": 3,
+    "exhaustion_per_kill": 0.35,
+    "exhaustion_recovery_rate_per_hr": 0.005,
+    "exhausted_kill_penalty": 0.8,
+
+    "activation_radius_um": 30.0,
+    "activation_rate_per_hr": 0.1,
+    "deactivation_rate_per_hr": 0.15,
+    "min_activation_for_kill": 0.5,
+
+    "chemokine_diffusion_um2_hr": 1800.0,
+    "chemokine_decay_per_hr": 0.5,
+    "tumor_chemokine_secretion": 0.3
   },
 
   "initialization": {
@@ -88,7 +108,7 @@
       "x": 525,
       "y": 525,
       "ecDNA_count": 20,
-      "ecDNA_cargo": ["EGFR", "MYC"],
+      "ecDNA_cargo": ["EGFR"],
       "cell_cycle_phase": "G1"
     }
   ],
@@ -346,12 +366,12 @@
       "lactate_production_amol_hr": 5000.0,
       "transition_rules": [],
       "ecDNA_init_count": 20,
-      "ecDNA_cargo": ["EGFR", "MYC"],
+      "ecDNA_cargo": ["EGFR"],
       "ecDNA_segregation_p": 0.5,
       "ecDNA_effect_on_division": 0.3,
-      "ecDNA_effect_on_VEGF": 0.05,
-      "ecDNA_effect_on_migration": 0.02,
-      "ecDNA_effect_on_survival": 0.1
+      "ecDNA_effect_on_VEGF": 0.1,
+      "ecDNA_effect_on_migration": 0.05,
+      "ecDNA_effect_on_survival": 0.2
     },
     "7": {
       "type_name": "RecruitedImmune",

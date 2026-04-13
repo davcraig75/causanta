@@ -24,9 +24,11 @@ from .environment import EnvironmentFields
 CELLS_COLUMNS = [
     "cell_id", "parent_id", "cell_type", "cell_type_name",
     "x", "y", "angle", "shape_path", "size_scale",
-    "cell_cycle_phase", "ecDNA_count", "ecDNA_cargo",
+    "cell_cycle_phase", "ecDNA_count", "ecDNA_cargo", "egfr_expression",
     "O2_local", "glucose_local", "is_hypoxic", "is_quiescent",
     "generation", "time_born_hr", "migration_rate", "VEGF_secretion",
+    # Immune cell state fields
+    "activation_level", "exhaustion_level", "kills_performed",
 ]
 
 # TSV column definitions matching spec Section 9.3
@@ -44,13 +46,29 @@ LINEAGE_COLUMNS = [
 ]
 
 
-def create_output_directory(base_path: str | Path = "output") -> Path:
-    """Create timestamped output directory."""
+def create_output_directory(base_path: str | Path = "output", organize: bool = True) -> Path:
+    """Create timestamped output directory with organized structure.
+
+    Args:
+        base_path: Base output directory
+        organize: If True, create subdirectories (data/, figures/, reports/, animations/)
+
+    Returns:
+        Path to the run directory
+    """
     base = Path(base_path)
     base.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = base / f"run_{timestamp}"
     run_dir.mkdir(parents=True, exist_ok=True)
+
+    if organize:
+        # Create organized subdirectories
+        (run_dir / "data").mkdir(exist_ok=True)
+        (run_dir / "figures").mkdir(exist_ok=True)
+        (run_dir / "reports").mkdir(exist_ok=True)
+        (run_dir / "animations").mkdir(exist_ok=True)
+
     return run_dir
 
 
@@ -73,6 +91,7 @@ def write_cells_tsv(population: CellPopulation, filepath: Path) -> None:
                 cell.cell_cycle_phase,
                 cell.ecDNA_count,
                 cell.ecDNA_cargo,
+                f"{cell.egfr_expression:.4f}",
                 f"{cell.O2_local:.2f}",
                 f"{cell.glucose_local:.4f}",
                 cell.is_hypoxic,
@@ -81,6 +100,10 @@ def write_cells_tsv(population: CellPopulation, filepath: Path) -> None:
                 f"{cell.time_born_hr:.1f}",
                 f"{cell.migration_rate:.2f}",
                 f"{cell.VEGF_secretion:.2f}",
+                # Immune cell state
+                f"{cell.activation_level:.4f}",
+                f"{cell.exhaustion_level:.4f}",
+                cell.kills_performed,
             ])
 
 
@@ -165,4 +188,7 @@ def copy_params_json(config_path: str | Path, output_dir: Path) -> None:
     """Copy parameter JSON file to output directory."""
     src = Path(config_path)
     if src.exists():
-        shutil.copy2(src, output_dir / "params.json")
+        # Use data subdirectory if it exists
+        data_dir = output_dir / "data"
+        dest_dir = data_dir if data_dir.exists() else output_dir
+        shutil.copy2(src, dest_dir / "params.json")

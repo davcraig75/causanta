@@ -31,6 +31,8 @@ from .behaviors import (
     compute_migration,
     sample_environment,
     update_effective_rates,
+    update_immune_activation,
+    update_immune_exhaustion,
 )
 from .cells import (
     ENDOTHELIAL,
@@ -192,14 +194,27 @@ class Simulation:
 
         # Write visualization and report
         if self.output_dir:
+            # Determine output subdirectories
+            reports_dir = self.output_dir / "reports"
+            figures_dir = self.output_dir / "figures"
+            data_dir = self.output_dir / "data"
+
+            # Use subdirectories if they exist, otherwise use root
+            if not reports_dir.exists():
+                reports_dir = self.output_dir
+            if not figures_dir.exists():
+                figures_dir = self.output_dir
+            if not data_dir.exists():
+                data_dir = self.output_dir
+
             write_vega_spec(
-                self.output_dir,
+                data_dir,
                 self.config,
                 total,
                 self.config.time.output_interval_hr,
             )
-            write_html_viewer(self.output_dir)
-            print(f"  Visualization: {self.output_dir / 'index.html'}")
+            write_html_viewer(reports_dir)
+            print(f"  Visualization: {reports_dir / 'index.html'}")
 
             # Generate standalone HTML viewer with embedded Vega-Lite
             standalone_path = generate_standalone_html(
@@ -208,7 +223,7 @@ class Simulation:
                 domain=self.domain,
                 config=self.config,
                 time_hr=float(total),
-                output_path=self.output_dir / "viewer.html",
+                output_path=reports_dir / "viewer.html",
                 title=f"CAUSANTA Simulation (t={total}h)",
             )
             print(f"  Standalone viewer: {standalone_path}")
@@ -220,13 +235,13 @@ class Simulation:
                 domain=self.domain,
                 config=self.config,
                 time_hr=float(total),
-                output_path=self.output_dir / "simulation.vl.json",
+                output_path=figures_dir / "simulation.vl.json",
             )
             print(f"  Vega spec: {vega_json_path}")
 
             # Generate comprehensive report
             print("Generating report...")
-            report_path = generate_report(self.output_dir, self.config, elapsed)
+            report_path = generate_report(data_dir, self.config, elapsed)
             print(f"  Report: {report_path}")
 
     def _step_environment(self) -> None:
@@ -244,7 +259,6 @@ class Simulation:
         cells = self.population.shuffled_living(self.rng)
         hypoxia_thresh = self.config.environment.hypoxia_threshold_mmHg
         kill_radius = self.config.immune_recruitment.kill_radius_um
-        kill_rate = self.config.immune_recruitment.kill_rate_per_hr
 
         to_remove: list[int] = []
 
@@ -258,7 +272,7 @@ class Simulation:
 
             # a. Sample local environment
             sample_environment(cell, self.env, self.domain, hypoxia_thresh)
-            update_effective_rates(cell, tp)
+            update_effective_rates(cell, tp, self.rng)
 
             # b. Death checks
             # Necrosis
@@ -290,27 +304,49 @@ class Simulation:
                 cell, tp, self.env, self.domain, self.population, self.rng
             )
 
-        # Immune-mediated killing
+        # Immune cell state updates and killing
+        # Process recruited immune cells
         for cell in self.population.iter_by_type(RECRUITED_IMMUNE):
             if not cell.is_alive:
                 continue
-            nearby = self.population.get_neighbors(cell.x, cell.y, kill_radius)
-            for target in nearby:
-                if target.cell_type == TUMOR and target.is_alive:
-                    if check_immune_kill(target, cell, kill_rate, self.rng):
-                        target.is_alive = False
-                        to_remove.append(target.cell_id)
 
-        # Also check activated microglia
-        for cell in self.population.iter_by_type(MICROGLIA):
-            if not cell.is_alive or not cell.is_reactive:
-                continue
+            # Update activation based on tumor proximity
+            update_immune_activation(cell, self.population, self.config)
+
+            # Update exhaustion recovery
+            update_immune_exhaustion(cell, self.config)
+
+            # Attempt to kill nearby tumor cells
             nearby = self.population.get_neighbors(cell.x, cell.y, kill_radius)
             for target in nearby:
                 if target.cell_type == TUMOR and target.is_alive:
-                    if check_immune_kill(target, cell, kill_rate * 0.5, self.rng):
+                    if check_immune_kill(target, cell, self.config, self.rng):
                         target.is_alive = False
                         to_remove.append(target.cell_id)
+                        break  # One kill attempt per step
+
+        # Also check activated microglia (resident immune cells)
+        for cell in self.population.iter_by_type(MICROGLIA):
+            if not cell.is_alive:
+                continue
+
+            # Update activation state
+            update_immune_activation(cell, self.population, self.config)
+
+            # Only attempt kill if reactive/activated
+            if not cell.is_reactive:
+                continue
+
+            # Update exhaustion recovery
+            update_immune_exhaustion(cell, self.config)
+
+            nearby = self.population.get_neighbors(cell.x, cell.y, kill_radius)
+            for target in nearby:
+                if target.cell_type == TUMOR and target.is_alive:
+                    if check_immune_kill(target, cell, self.config, self.rng):
+                        target.is_alive = False
+                        to_remove.append(target.cell_id)
+                        break  # One kill attempt per step
 
         # Remove dead cells
         for cid in to_remove:
@@ -384,12 +420,17 @@ class Simulation:
         if self.output_dir is None:
             return
 
+        # Determine data directory (use subdirectory if it exists)
+        data_dir = self.output_dir / "data"
+        if not data_dir.exists():
+            data_dir = self.output_dir
+
         # Cell state
-        cells_path = self.output_dir / f"cells_t{step:06d}.tsv"
+        cells_path = data_dir / f"cells_t{step:06d}.tsv"
         write_cells_tsv(self.population, cells_path)
 
         # Environment state
-        env_path = self.output_dir / f"environment_t{step:06d}.tsv"
+        env_path = data_dir / f"environment_t{step:06d}.tsv"
         write_environment_tsv(self.env, self.domain, env_path)
 
         # Summary statistics
@@ -405,14 +446,17 @@ class Simulation:
             "max_VEGF_nM": float(self.env.VEGF.max()),
             "mean_lactate_mM": float(self.env.lactate.mean()),
         }
-        summary_path = self.output_dir / "summary.log"
+        summary_path = data_dir / "summary.log"
         write_summary_log(stats, summary_path, step, append=(step > 0))
 
     def _write_lineage(self) -> None:
         """Write pending lineage records and clear the buffer."""
         if self.output_dir is None or not self.lineage_records:
             return
-        lineage_path = self.output_dir / "lineage.tsv"
+        # Use data subdirectory if it exists
+        data_dir = self.output_dir / "data"
+        dest_dir = data_dir if data_dir.exists() else self.output_dir
+        lineage_path = dest_dir / "lineage.tsv"
         append = lineage_path.exists()
         write_lineage_tsv(self.lineage_records, lineage_path, append=append)
         self.lineage_records.clear()

@@ -42,41 +42,88 @@ def generate_frame_svg(
     domain_height: float,
     time_hr: int,
     svg_size: int = 500,
+    render_mode: str = "tumor_focus",
 ) -> str:
-    """Generate SVG string for a single frame."""
-    scale = svg_size / max(domain_width, domain_height)
+    """Generate SVG string for a single frame.
 
+    Args:
+        render_mode:
+            - "tumor_focus": Only render tumor, immune, necrotic + sparse background (FAST, small file)
+            - "full": Render all cells (SLOW, large file)
+    """
+    scale = svg_size / max(domain_width, domain_height)
     parts = []
 
-    # Render cells sorted: normal cells first, tumor on top
-    sorted_cells = sorted(cells, key=lambda c: (c.get('cell_type_name', '') == 'Tumor', c.get('cell_type', 0)))
+    # Key cell types to always render
+    KEY_TYPES = {'Tumor', 'RecruitedImmune', 'Microglia', 'Necrotic'}
 
-    for cell in sorted_cells:
+    # Separate key cells from background
+    key_cells = []
+    background_cells = []
+
+    for cell in cells:
+        type_name = cell.get('cell_type_name', 'Unknown')
+        if type_name in KEY_TYPES:
+            key_cells.append(cell)
+        else:
+            background_cells.append(cell)
+
+    # For background, only render a sparse sample (every 10th cell) as small dots
+    if render_mode == "tumor_focus":
+        # Render sparse background as tiny dots for context
+        for i, cell in enumerate(background_cells):
+            if i % 10 != 0:  # Only render 10% of background cells
+                continue
+            x = cell.get('x', 0) * scale
+            y = cell.get('y', 0) * scale
+            color = type_colors.get(cell.get('cell_type_name', ''), '#444')
+            # Render as tiny circle (no stroke, simplified)
+            parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="2" fill="{color}" opacity="0.3"/>')
+    else:
+        # Full mode: render all background cells
+        for cell in background_cells:
+            x = cell.get('x', 0) * scale
+            y = cell.get('y', 0) * scale
+            r = cell.get('diameter', 10) * scale / 2
+            color = type_colors.get(cell.get('cell_type_name', ''), '#888')
+            parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="{color}" stroke="#222" stroke-width="0.3"/>')
+
+    # Render key cells on top with full detail
+    # Sort: necrotic first, then immune, then tumor on top
+    key_cells.sort(key=lambda c: (
+        c.get('cell_type_name') == 'Tumor',  # Tumor last (on top)
+        c.get('cell_type_name') in ('RecruitedImmune', 'Microglia'),  # Immune middle
+    ))
+
+    for cell in key_cells:
         x = cell.get('x', 0) * scale
         y = cell.get('y', 0) * scale
         diameter = cell.get('diameter', 10) * scale
-        cell_scale = diameter / 2
-        angle_deg = math.degrees(cell.get('angle', 0))
+        r = diameter / 2
         type_name = cell.get('cell_type_name', 'Unknown')
         color = type_colors.get(type_name, '#888')
-        shape_path = type_shapes.get(type_name, '')
 
-        # Highlight tumor cells
         if type_name == 'Tumor':
-            parts.append(
-                f'<circle cx="{x}" cy="{y}" r="{cell_scale + 2}" '
-                f'fill="none" stroke="#FFD700" stroke-width="2"/>'
-            )
-
-        if shape_path:
-            parts.append(
-                f'<path d="{shape_path}" fill="{color}" stroke="#222" stroke-width="{0.08/cell_scale:.4f}" '
-                f'transform="translate({x},{y}) rotate({angle_deg}) scale({cell_scale})"/>'
-            )
-        else:
-            parts.append(
-                f'<circle cx="{x}" cy="{y}" r="{cell_scale}" fill="{color}" stroke="#222" stroke-width="0.5"/>'
-            )
+            # Highlight tumor cells with glow
+            parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r+2:.1f}" fill="none" stroke="#FFD700" stroke-width="2" opacity="0.7"/>')
+            parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="{color}" stroke="#222" stroke-width="0.5"/>')
+        elif type_name == 'RecruitedImmune':
+            # Orange immune cells
+            parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="{color}" stroke="#FF4444" stroke-width="1"/>')
+        elif type_name == 'Microglia':
+            # Pink microglia with activation indicator
+            activation = cell.get('activation_level', 0)
+            try:
+                activation = float(activation)
+            except (ValueError, TypeError):
+                activation = 0.0
+            if activation > 0.3:
+                # Activated: brighter, with ring
+                parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r+1:.1f}" fill="none" stroke="#FF0000" stroke-width="1" opacity="{activation:.1f}"/>')
+            parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="{color}" stroke="#222" stroke-width="0.5"/>')
+        elif type_name == 'Necrotic':
+            # Gray necrotic cells
+            parts.append(f'<rect x="{x-r:.1f}" y="{y-r:.1f}" width="{diameter:.1f}" height="{diameter:.1f}" fill="{color}" stroke="#222" stroke-width="0.3" opacity="0.7"/>')
 
     return '\n'.join(parts)
 
@@ -87,6 +134,8 @@ def generate_movie_html(
     domain_width: float = 1000,
     domain_height: float = 1000,
     fps: int = 4,
+    max_frames: int = 200,
+    render_mode: str = "tumor_focus",
 ) -> Path:
     """Generate animated HTML from simulation output.
 
@@ -96,6 +145,8 @@ def generate_movie_html(
         domain_width: Domain width in micrometers
         domain_height: Domain height in micrometers
         fps: Frames per second for playback
+        max_frames: Maximum number of frames to include (subsamples if more)
+        render_mode: "tumor_focus" for small files, "full" for complete rendering
 
     Returns:
         Path to generated HTML file.
@@ -106,6 +157,15 @@ def generate_movie_html(
         raise ValueError(f"No cells_t*.tsv files found in {output_dir}")
 
     print(f"Found {len(cell_files)} frames")
+
+    # Subsample if too many frames
+    if len(cell_files) > max_frames:
+        step = len(cell_files) // max_frames
+        cell_files = cell_files[::step]
+        # Always include the last frame
+        if cell_files[-1] != sorted(output_dir.glob('cells_t*.tsv'))[-1]:
+            cell_files.append(sorted(output_dir.glob('cells_t*.tsv'))[-1])
+        print(f"Subsampled to {len(cell_files)} frames (every {step}th frame)")
 
     # Load params for colors and shapes
     params_path = output_dir / 'params.json'
@@ -148,7 +208,8 @@ def generate_movie_html(
 
         frame_svg = generate_frame_svg(
             cells, type_colors, type_shapes,
-            domain_width, domain_height, time_hr, svg_size
+            domain_width, domain_height, time_hr, svg_size,
+            render_mode=render_mode,
         )
         frames.append({
             'time': time_hr,

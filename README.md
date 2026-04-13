@@ -2,24 +2,28 @@
 
 **Causal Analysis Using Somatic And Neighborhood Tissue Architecture**
 
-CAUSANTA is a 2D tissue simulation engine that generates synthetic tissue sections with known ground-truth causal structure, enabling rigorous benchmarking of causal discovery algorithms. It treats heritable somatic variation (particularly extrachromosomal DNA) as Somatic Instrumental Variables (SIVs) within a Structural Causal Model, allowing identification of causal effects from otherwise observational spatial data.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Features
+CAUSANTA is a simulation framework for benchmarking causal inference methods in spatial biology. It generates synthetic tumor tissue with **known ground-truth causal structure**, enabling rigorous validation of causal discovery algorithms.
 
-- **9 cell types** modeled as individual agents: Neuron, Astrocyte, Oligodendrocyte, Microglia, Endothelial, Pericyte, Tumor (Glioma), Recruited Immune, and Necrotic
-- **Reaction-diffusion environment** with O2, glucose, VEGF, and lactate fields solved via implicit LOD operator splitting (unconditionally stable)
-- **ecDNA segregation** as a natural randomization mechanism: binomial partitioning during mitosis generates inter-cell heterogeneity that satisfies instrumental variable assumptions
-- **Ground-truth causal graph** embedded in the simulation: ecDNA copy number causally affects proliferation rate, VEGF secretion, migration speed, and apoptosis resistance
-- **Cell behaviors**: 5-phase cell cycle, chemotaxis/haptotaxis migration, necrosis, apoptosis, immune-mediated killing, state transitions (reactive astrocytes, activated microglia)
-- **Angiogenesis**: VEGF-driven vessel sprouting with tip cell selection and vessel maturation
-- **Vega.js visualization** with interactive time slider, environment heatmap overlay, and cell type filtering
+The key innovation: **extrachromosomal DNA (ecDNA) segregation acts as a natural randomization mechanism**, satisfying instrumental variable assumptions and allowing causal effect identification from observational spatial data.
+
+## Why CAUSANTA?
+
+Causal inference in biology is hard because:
+- Randomized experiments are often infeasible
+- Observational data has confounding
+- Ground truth is rarely known
+
+CAUSANTA solves this by:
+1. **Embedding a known causal DAG** into a realistic tissue simulation
+2. **Using ecDNA as a Somatic Instrumental Variable (SIV)** - it segregates randomly during mitosis, creating natural variation that mimics randomization
+3. **Generating rich spatial data** where you can validate whether your causal inference method recovers the true effects
+
+---
 
 ## Quick Start
-
-### Requirements
-
-- Python >= 3.10
-- NumPy >= 1.24
 
 ### Installation
 
@@ -27,122 +31,213 @@ CAUSANTA is a 2D tissue simulation engine that generates synthetic tissue sectio
 pip install -e .
 ```
 
-### Running a Simulation
+### Run a Simulation
 
 ```bash
-# Default: 1mm x 1mm domain, 168 hours (1 week), single tumor seed
-python -m causanta.simulation
+# Default: 1mm x 1mm domain, 168 hours
+python -m causanta.simulate.core
 
 # Custom duration
-python -m causanta.simulation --hours 72
+python -m causanta.simulate.core --hours 500
 
-# Custom configuration
-python -m causanta.simulation my_params.json
-
-# Set RNG seed for reproducibility
-python -m causanta.simulation --seed 123
+# Custom parameters
+python -m causanta.simulate.core my_params.json
 ```
 
-### Output
+### Analyze Results
 
-Each run creates a timestamped directory under `output/`:
+```bash
+# Command-line analysis
+python -m causanta.analyze.cli output/run_*/data/
 
-```
-output/run_YYYYMMDD_HHMMSS/
-    params.json                    # Frozen copy of parameters
-    cells_t000000.tsv              # Cell state at each hour
-    cells_t000001.tsv
-    ...
-    environment_t000000.tsv        # Environment grid at each hour
-    environment_t000001.tsv
-    ...
-    lineage.tsv                    # Division events with ecDNA segregation
-    summary.log                    # Per-step statistics
-    visualization.vg.json          # Vega.js specification
-    index.html                     # Self-contained HTML viewer
+# Or use Python
+python examples/analyze_simulation.py output/run_*/data/
 ```
 
-## Configuration
+---
 
-All parameters are specified in a single JSON file. See [`causanta/params/default.json`](causanta/params/default.json) for the complete default configuration.
+## Documentation
 
-Key configurable sections:
+| Document | Description |
+|----------|-------------|
+| **[Tutorial: Causal Inference](docs/tutorial.html)** | Step-by-step guide to causal effect estimation with CAUSANTA |
+| **[Analysis Guide](docs/analysis_guide.html)** | Detailed statistical methods and interpretation |
+| **[Immune System](docs/immune_system.html)** | Tumor-immune interaction modeling |
+| **[Parameters Reference](causanta/simulate/params/default.json)** | Full configuration options |
 
-| Section | Parameters |
-|---------|-----------|
-| `domain` | `width_um`, `height_um`, `env_grid_um` (up to 12mm x 12mm) |
-| `time` | `total_hours`, `dt_diffusion_hr`, `output_interval_hr`, `burnin_hours` |
-| `environment` | Substrate diffusion coefficients, decay rates, boundary values |
-| `cell_types` | Per-type geometry, proliferation, migration, metabolism, ecDNA effects |
-| `tumor_seeds` | Initial tumor positions, ecDNA copy number, cargo genes |
-| `angiogenesis` | VEGF threshold, sprouting rate, vessel maturation time |
-| `immune_recruitment` | Chemokine threshold, recruitment rate, kill rate |
+---
 
-## Architecture
+## The Causal Structure
+
+CAUSANTA embeds this causal DAG:
+
+```
+                    ┌─────────────────────────────────────┐
+                    │         CAUSAL DAG                  │
+                    └─────────────────────────────────────┘
+
+    ┌──────────────┐         ┌──────────────────┐
+    │  ecDNA_count │────────▶│ EGFR_expression  │
+    │  (INSTRUMENT)│         │   (EXPOSURE)     │
+    └──────────────┘         └────────┬─────────┘
+           │                          │
+           │                          ▼
+           │                 ┌──────────────────┐
+           │                 │  Proliferation   │◀──┐
+           │                 │    Rate          │   │
+           │                 └──────────────────┘   │
+           │                          │             │
+           │                          ▼             │
+           │                 ┌──────────────────┐   │
+           └────────────────▶│    Migration     │   │
+                             │     Speed        │   │ O2_local
+                             └──────────────────┘   │ (CONFOUNDER)
+                                      │             │
+                                      ▼             │
+                             ┌──────────────────┐   │
+                             │ VEGF_secretion   │───┘
+                             │ → Angiogenesis   │
+                             └──────────────────┘
+```
+
+### Why ecDNA is a Valid Instrument
+
+1. **Relevance**: ecDNA copy number directly affects EGFR expression (gene dosage)
+2. **Independence**: ecDNA segregates via `Binomial(N, 0.5)` during mitosis - essentially random
+3. **Exclusion**: ecDNA affects phenotypes *only through* gene expression, not directly
+
+This allows Two-Stage Least Squares (2SLS) regression to recover causal effects from observational data.
+
+---
+
+## Repository Structure
 
 ```
 causanta/
-    __init__.py
-    config.py              # JSON parameter loading and validation
-    domain.py              # Grid, coordinate system, bilinear interpolation
-    cells.py               # Cell agent dataclass, spatial hash population manager
-    ecdna.py               # ecDNA segregation and phenotype modulation
-    environment.py         # Reaction-diffusion fields, vectorized Thomas algorithm
-    behaviors.py           # Proliferation, migration, death, state transitions
-    angiogenesis.py        # VEGF-driven vessel sprouting
-    initialization.py      # Synthetic tissue setup (vasculature, cells, tumor)
-    simulation.py          # Main loop orchestration and CLI entry point
-    io.py                  # TSV/JSON file I/O
-    visualization.py       # Vega.js spec and HTML viewer generation
-    params/
-        default.json       # Default parameter configuration
+├── README.md                 # This file
+├── pyproject.toml            # Package configuration
+├── LICENSE
+│
+├── causanta/                 # Python package
+│   ├── simulate/             # Tumor growth simulation
+│   │   ├── core.py           # Main simulation loop
+│   │   ├── cells.py          # Cell agents
+│   │   ├── behaviors.py      # Cell behaviors (division, migration, death)
+│   │   ├── environment.py    # Reaction-diffusion fields
+│   │   ├── ecdna.py          # ecDNA segregation and effects
+│   │   └── params/
+│   │       └── default.json  # Default parameters
+│   │
+│   ├── analyze/              # Causal inference tools
+│   │   ├── effects.py        # Causal effect estimation
+│   │   ├── iv.py             # Instrumental variable regression
+│   │   ├── regression.py     # OLS and 2SLS
+│   │   └── discovery.py      # Causal structure learning
+│   │
+│   └── graph/                # Causal DAG representation
+│       └── causal_dag.py     # DAG construction and visualization
+│
+├── docs/                     # Documentation
+│   ├── tutorial.md           # Causal inference tutorial
+│   ├── analysis_guide.md     # Statistical methods guide
+│   ├── immune_system.md      # Immune modeling docs
+│   └── assets/
+│       └── style.css         # Documentation styling
+│
+├── examples/                 # Example scripts
+│   └── analyze_simulation.py
+│
+└── scripts/                  # Utility scripts
+    └── run_enhanced_analysis.py
 ```
 
-### Simulation Loop (per hour)
+---
 
-1. **Environment diffusion** -- Implicit LOD sub-stepping for O2, glucose, VEGF, lactate
-2. **Cell behaviors** -- Death checks, state transitions, cell cycle advancement, migration (random-shuffled order)
-3. **Angiogenesis** -- VEGF-driven vessel sprouting
-4. **Immune recruitment** -- Spawn immune cells from vasculature near tumor signals
-5. **Cleanup** -- Necrotic cell lysis, occupancy grid update
-6. **Output** -- Write TSV snapshots at configured interval
+## Configuration
 
-### Key Design Decisions
+All parameters are in [`causanta/simulate/params/default.json`](causanta/simulate/params/default.json).
 
-- **Cell storage**: Individual `Cell` dataclass objects in a `dict[int, Cell]` with a spatial hash grid (20 um buckets) for O(1) neighbor queries
-- **Diffusion solver**: Vectorized Thomas algorithm processes all grid rows/columns simultaneously via NumPy; implicit LOD scheme is unconditionally stable (no CFL constraint)
-- **Source/sink accumulation**: Computed once per hour and reused across all diffusion sub-steps, since cells only act once per hour
-- **Tumor displacement**: Non-contact-inhibited cells (tumor) push neighboring cells aside during division, matching invasive growth biology
-- **Reproducibility**: Single seeded `np.random.Generator` passed through the entire simulation
+### Key Sections
 
-## The Causal Inference Framework
+| Section | What It Controls |
+|---------|------------------|
+| `domain` | Simulation size (up to 12mm x 12mm) |
+| `time` | Duration, output frequency |
+| `cell_types` | 9 cell types with individual behaviors |
+| `tumor_seeds` | Initial tumor location and ecDNA |
+| `immune_recruitment` | Tumor-immune dynamics |
+| `angiogenesis` | VEGF-driven vessel formation |
 
-CAUSANTA embeds a known Structural Causal Model:
+### Causal Effect Parameters
+
+These are the **ground truth** effects you're trying to recover:
+
+| Parameter | Effect | Equation |
+|-----------|--------|----------|
+| `ecDNA_effect_on_division` (α) | Faster division | T_eff = T_base / (1 + α·log₂(1+ecDNA)) |
+| `ecDNA_effect_on_VEGF` (β) | More VEGF | S_eff = S_base · (1 + β·ecDNA) |
+| `ecDNA_effect_on_migration` (δ) | Faster migration | v_eff = v_base · (1 + δ·ecDNA) |
+| `ecDNA_effect_on_survival` (γ) | Apoptosis resistance | a_eff = a_base / (1 + γ·ecDNA) |
+
+---
+
+## Output Structure
+
+Each simulation creates an organized output directory:
 
 ```
-ecDNA_count --> EGFR_expression --> proliferation_rate
-     |                                      ^
-     |                              O2_local (confounder)
-     |                                      ^
-     +-----> VEGF_secretion --> angiogenesis -+
+output/run_YYYYMMDD_HHMMSS/
+├── data/
+│   ├── cells_t000000.tsv      # Cell states per timestep
+│   ├── environment_t000000.tsv # Environment fields
+│   ├── lineage.tsv            # Division events with ecDNA segregation
+│   ├── summary.log            # Per-step statistics
+│   └── params.json            # Parameters used
+│
+├── figures/
+│   └── simulation.vl.json     # Vega-Lite visualization spec
+│
+├── reports/
+│   ├── report.html            # Comprehensive analysis report
+│   └── viewer.html            # Interactive cell viewer
+│
+└── animations/
+    └── tumor_growth.html      # Animated tumor growth visualization
 ```
 
-The ground-truth causal effects are:
+### Cleanup
 
-| Relationship | Equation |
-|---|---|
-| ecDNA -> division time | T_eff = T_base / (1 + alpha * log2(1 + ecDNA)) |
-| ecDNA -> VEGF secretion | S_eff = S_base * (1 + beta * ecDNA) |
-| ecDNA -> migration speed | v_eff = v_base * (1 + delta * ecDNA) |
-| ecDNA -> apoptosis resistance | a_eff = a_base / (1 + gamma * ecDNA) |
+To reduce disk usage (simulations can generate 100s of MB):
 
-ecDNA segregation during mitosis follows `Binomial(N, 0.5)`, providing the randomization that satisfies instrumental variable assumptions (relevance, independence, exclusion restriction).
+```bash
+# Keep only 2% of timesteps (first, last, and samples)
+python -m causanta.simulate.cleanup output/run_*/data --keep 0.02
+```
+
+---
 
 ## Performance
 
 | Domain | Cells | Speed | 168h Runtime |
-|---|---|---|---|
-| 1mm x 1mm | ~5,000 | ~0.8 hr/s | ~4 min |
+|--------|-------|-------|--------------|
+| 1mm x 1mm | ~5,000 | ~3 hr/s | ~1 min |
+| 2mm x 2mm | ~20,000 | ~1 hr/s | ~3 min |
+
+---
+
+## Citation
+
+If you use CAUSANTA in your research, please cite:
+
+```bibtex
+@software{causanta2024,
+  title = {CAUSANTA: Causal Analysis Using Somatic And Neighborhood Tissue Architecture},
+  year = {2024},
+  url = {https://github.com/yourusername/causanta}
+}
+```
+
+---
 
 ## License
 

@@ -8,7 +8,7 @@ Simulation engine v0.1.0 fully implemented with 12 modules.
 
 - **Package**: `causanta/` (Python 3.10+, NumPy)
 - **CLI**: `python -m causanta.simulation [config.json] [--hours N] [--seed N]`
-- **Default config**: `causanta/params/default.json` (1mm domain, 168 hours, 9 cell types)
+- **Default config**: `causanta/simulate/params/default.json` (1mm domain, 168 hours, 9 cell types)
 - **Output**: Timestamped directories under `output/` with TSV snapshots, lineage records, and Vega.js visualization
 
 ## Module Summary

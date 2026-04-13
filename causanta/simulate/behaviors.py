@@ -19,6 +19,7 @@ from .cells import (
     MICROGLIA,
     NECROTIC,
     PERICYTE,
+    RECRUITED_IMMUNE,
     TUMOR,
     Cell,
     CellPopulation,
@@ -27,6 +28,7 @@ from .cells import (
 from .config import CellTypeConfig, SimulationConfig
 from .domain import Domain
 from .ecdna import (
+    compute_egfr_expression,
     modulate_apoptosis_rate,
     modulate_division_time,
     modulate_migration_speed,
@@ -87,13 +89,47 @@ def sample_environment(
     cell.is_hypoxic = cell.O2_local < hypoxia_threshold
 
 
-def update_effective_rates(cell: Cell, tp: CellTypeConfig) -> None:
-    """Update ecDNA-modulated effective rates on cell."""
-    cell.migration_rate = modulate_migration_speed(
-        tp.migration_speed_um_hr, cell.ecDNA_count, tp.ecDNA_effect_on_migration
+def update_effective_rates(
+    cell: Cell,
+    tp: CellTypeConfig,
+    rng: np.random.Generator | None = None,
+) -> None:
+    """Update EGFR expression and downstream phenotype rates.
+
+    Implements the causal chain:
+        ecDNA_count → EGFR_expression → Phenotypes
+
+    The key insight: ecDNA is the INSTRUMENT (randomized by segregation),
+    EGFR expression is the EXPOSURE (what we measure), and migration/VEGF
+    are the OUTCOMES.
+
+    Also implements "Go or Grow" dynamics:
+    - Migration increased by EGFR expression AND hypoxia
+    - VEGF secretion increased by EGFR expression
+    """
+    # Step 1: Compute EGFR expression from ecDNA count
+    # This is the causal link: more ecDNA copies → more EGFR mRNA → more protein
+    cell.egfr_expression = compute_egfr_expression(
+        cell.ecDNA_count,
+        rng=rng,
+        include_noise=True,  # Transcriptional stochasticity
     )
+
+    # Step 2: EGFR expression drives downstream phenotypes
+    # Migration: EGFR effect + hypoxia "Go" response
+    cell.migration_rate = modulate_migration_speed(
+        tp.migration_speed_um_hr,
+        cell.egfr_expression,  # Use EGFR, not ecDNA directly
+        tp.ecDNA_effect_on_migration,
+        is_hypoxic=cell.is_hypoxic,
+        hypoxia_invasion_boost=2.0,
+    )
+
+    # VEGF secretion: EGFR effect (actual secretion gated by hypoxia in environment.py)
     cell.VEGF_secretion = modulate_vegf_secretion(
-        tp.VEGF_secretion_amol_hr, cell.ecDNA_count, tp.ecDNA_effect_on_VEGF
+        tp.VEGF_secretion_amol_hr,
+        cell.egfr_expression,  # Use EGFR, not ecDNA directly
+        tp.ecDNA_effect_on_VEGF,
     )
 
 
@@ -142,12 +178,185 @@ def check_apoptosis(cell: Cell, tp: CellTypeConfig, rng: np.random.Generator) ->
 def check_immune_kill(
     tumor_cell: Cell,
     immune_cell: Cell,
-    kill_rate: float,
+    config: SimulationConfig,
     rng: np.random.Generator,
+    dt_hr: float = 1.0,
 ) -> bool:
-    """Check if immune cell kills tumor cell this step."""
-    p_kill = kill_rate * max(immune_cell.activation_level, 0.1)
-    return rng.random() < p_kill
+    """Check if immune cell kills tumor cell this step.
+
+    Implements biologically realistic immunological synapse mechanics:
+
+    1. **Contact Tracking**: Immune cell must maintain contact with same target
+       for synapse_formation_time (1-2 hours) before kill is possible.
+
+    2. **Activation Requirement**: Immune cell must be sufficiently activated
+       (min_activation_for_kill) to attempt killing.
+
+    3. **Exhaustion**: After max_kills_before_exhaustion (~10), killing
+       efficiency drops significantly.
+
+    4. **Probabilistic Killing**: Once synapse forms, kill probability is
+       kill_probability_per_synapse * (1 - exhaustion_penalty).
+
+    Args:
+        tumor_cell: Target tumor cell
+        immune_cell: Attacking immune cell
+        config: Simulation configuration with immune parameters
+        rng: Random number generator
+        dt_hr: Time step in hours
+
+    Returns:
+        True if immune cell kills tumor cell this step
+    """
+    ir = config.immune_recruitment
+
+    # Check activation threshold
+    if immune_cell.activation_level < ir.min_activation_for_kill:
+        # Reset contact if not activated enough to kill
+        immune_cell.contact_target_id = -1
+        immune_cell.contact_duration_hr = 0.0
+        return False
+
+    # Check if this is the same target as before
+    if immune_cell.contact_target_id == tumor_cell.cell_id:
+        # Continue tracking contact duration
+        immune_cell.contact_duration_hr += dt_hr
+    else:
+        # New target - reset contact tracking
+        immune_cell.contact_target_id = tumor_cell.cell_id
+        immune_cell.contact_duration_hr = dt_hr
+
+    # Check minimum contact time before any kill is possible
+    if immune_cell.contact_duration_hr < ir.min_contact_for_kill_hr:
+        return False
+
+    # Calculate synapse formation progress
+    synapse_progress = immune_cell.contact_duration_hr / ir.synapse_formation_time_hr
+    synapse_progress = min(synapse_progress, 1.0)
+
+    # Base kill probability scales with synapse formation
+    base_kill_prob = ir.kill_probability_per_synapse * synapse_progress
+
+    # Apply exhaustion penalty
+    exhaustion_penalty = immune_cell.exhaustion_level * ir.exhausted_kill_penalty
+    effective_kill_prob = base_kill_prob * (1.0 - exhaustion_penalty)
+
+    # Scale by activation level
+    effective_kill_prob *= immune_cell.activation_level
+
+    # Scale by time step (probability per hour)
+    p_kill_this_step = effective_kill_prob * dt_hr
+
+    # Attempt kill
+    if rng.random() < p_kill_this_step:
+        # Successful kill - update immune cell state
+        immune_cell.kills_performed += 1
+        immune_cell.exhaustion_level = min(
+            1.0, immune_cell.exhaustion_level + ir.exhaustion_per_kill
+        )
+        # Reset contact for next target
+        immune_cell.contact_target_id = -1
+        immune_cell.contact_duration_hr = 0.0
+        return True
+
+    return False
+
+
+def update_immune_activation(
+    cell: Cell,
+    population: CellPopulation,
+    config: SimulationConfig,
+    dt_hr: float = 1.0,
+) -> None:
+    """Update immune cell activation based on tumor proximity.
+
+    Immune cells become activated when they detect tumor cells nearby
+    (within activation_radius_um). Activation increases killing efficiency
+    and migration toward tumors.
+
+    Without tumor proximity, activation slowly decays.
+    """
+    if cell.cell_type not in (RECRUITED_IMMUNE, MICROGLIA):
+        return
+
+    ir = config.immune_recruitment
+
+    # Check for nearby tumor cells
+    neighbors = population.get_neighbors(cell.x, cell.y, ir.activation_radius_um)
+    tumor_nearby = sum(1 for n in neighbors if n.cell_type == TUMOR)
+
+    if tumor_nearby > 0:
+        # Activate - rate increases with tumor density
+        activation_boost = ir.activation_rate_per_hr * min(tumor_nearby, 5) / 5.0
+        cell.activation_level = min(1.0, cell.activation_level + activation_boost * dt_hr)
+        cell.is_reactive = True
+    else:
+        # Deactivate slowly when no tumor nearby
+        cell.activation_level = max(0.0, cell.activation_level - ir.deactivation_rate_per_hr * dt_hr)
+        if cell.activation_level < 0.1:
+            cell.is_reactive = False
+
+
+def update_immune_exhaustion(
+    cell: Cell,
+    config: SimulationConfig,
+    dt_hr: float = 1.0,
+) -> None:
+    """Update immune cell exhaustion recovery.
+
+    When not actively killing, immune cells slowly recover from exhaustion.
+    Fully exhausted cells take a long time to recover killing capacity.
+    """
+    if cell.cell_type not in (RECRUITED_IMMUNE, MICROGLIA):
+        return
+
+    ir = config.immune_recruitment
+
+    # Only recover if not in contact with target
+    if cell.contact_target_id == -1:
+        recovery = ir.exhaustion_recovery_rate_per_hr * dt_hr
+        cell.exhaustion_level = max(0.0, cell.exhaustion_level - recovery)
+
+
+def compute_immune_chemotaxis(
+    cell: Cell,
+    tp: CellTypeConfig,
+    env: EnvironmentFields,
+    domain: Domain,
+    population: CellPopulation,
+) -> tuple[float, float]:
+    """Compute chemotaxis direction for immune cells.
+
+    Immune cells follow multiple gradients:
+    1. Chemokine gradients (CCL2, CCL5, CXCL10) secreted by tumors
+    2. VEGF gradients (correlate with tumor hypoxia)
+    3. Lactate gradients (high lactate = tumor metabolism)
+
+    Returns:
+        (vx, vy): Chemotaxis velocity components
+    """
+    vx, vy = 0.0, 0.0
+
+    # Chemokine gradient (primary chemoattractant)
+    if tp.chemotaxis_chemokine != 0 and hasattr(env, 'chemokine'):
+        grad = domain.compute_gradient(env.chemokine, cell.x, cell.y)
+        vx += tp.chemotaxis_chemokine * grad[0]
+        vy += tp.chemotaxis_chemokine * grad[1]
+
+    # VEGF gradient (tumor-associated)
+    if tp.chemotaxis_VEGF != 0:
+        grad = domain.compute_gradient(env.VEGF, cell.x, cell.y)
+        vx += tp.chemotaxis_VEGF * grad[0]
+        vy += tp.chemotaxis_VEGF * grad[1]
+
+    # Lactate gradient (tumor metabolism marker)
+    if hasattr(env, 'lactate'):
+        grad = domain.compute_gradient(env.lactate, cell.x, cell.y)
+        # Immune cells attracted to high lactate (tumor regions)
+        vx += 0.3 * grad[0]
+        vy += 0.3 * grad[1]
+
+    return vx, vy
 
 
 def can_proliferate(
@@ -307,18 +516,20 @@ def _execute_division(
     parent.generation += 1
     parent.cell_cycle_phase = "G1"
     parent.cycle_clock_hr = 0.0
+
+    # Update effective rates for both cells (computes EGFR expression from new ecDNA counts)
+    update_effective_rates(parent, tp, rng)
+    update_effective_rates(daughter, tp, rng)
+
+    # Now compute division time using EGFR expression (proper causal chain)
     base_time = tp.division_time_mean_hr
     parent.total_cycle_time_hr = max(
         1.0,
         rng.normal(
-            modulate_division_time(base_time, parent.ecDNA_count, tp.ecDNA_effect_on_division),
+            modulate_division_time(base_time, parent.egfr_expression, tp.ecDNA_effect_on_division),
             tp.division_time_std_hr,
         ),
     )
-
-    # Update effective rates for both cells
-    update_effective_rates(parent, tp)
-    update_effective_rates(daughter, tp)
 
     return LineageRecord(
         time_hr=current_time_hr,
