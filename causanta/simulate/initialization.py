@@ -77,11 +77,18 @@ def generate_vascular_network(
 
     # Place vertical connecting vessels
     x_pos = int(spacing / 2)
+    endo_shape = endo_params.shape_path
     while x_pos < domain.width_um - margin:
         y = margin
         while y < domain.height_um - margin:
-            # Only place if not already occupied
-            if not population.has_neighbor_within(x_pos, y, endo_diameter * 0.6):
+            # Only place if not already occupied - use shape-aware collision
+            collision = population.has_neighbor_within(
+                x_pos, y, endo_diameter * 0.7,
+                query_shape=endo_shape,
+                query_diameter=endo_diameter,
+                query_angle=math.pi / 2,  # Vertical orientation
+            )
+            if not collision:
                 cid = population.allocate_id()
                 cell = create_cell(
                     cell_id=cid,
@@ -93,6 +100,7 @@ def generate_vascular_network(
                     type_params=endo_params,
                     rng=rng,
                 )
+                cell.angle = math.pi / 2  # Vertical orientation
                 cell.cell_cycle_phase = "G0"
                 cell.is_quiescent = True
                 population.add_cell(cell)
@@ -108,15 +116,23 @@ def generate_vascular_network(
     for _ in range(n_branches):
         bx = rng.integers(margin, domain.width_um - margin)
         by = rng.integers(margin, domain.height_um - margin)
-        angle = rng.uniform(0, 2 * math.pi)
+        branch_angle = rng.uniform(0, 2 * math.pi)
         length = rng.integers(30, int(spacing * 0.6))
 
         for step in range(0, length, cell_spacing):
-            px = int(bx + step * math.cos(angle))
-            py = int(by + step * math.sin(angle))
+            px = int(bx + step * math.cos(branch_angle))
+            py = int(by + step * math.sin(branch_angle))
             if not domain.is_in_bounds(px, py):
                 break
-            if population.has_neighbor_within(px, py, endo_diameter * 0.6):
+
+            # Shape-aware collision check aligned with branch direction
+            collision = population.has_neighbor_within(
+                px, py, endo_diameter * 0.7,
+                query_shape=endo_shape,
+                query_diameter=endo_diameter,
+                query_angle=branch_angle,
+            )
+            if collision:
                 continue
 
             cid = population.allocate_id()
@@ -130,6 +146,7 @@ def generate_vascular_network(
                 type_params=endo_params,
                 rng=rng,
             )
+            cell.angle = branch_angle  # Align with branch direction
             cell.cell_cycle_phase = "G0"
             cell.is_quiescent = True
             population.add_cell(cell)
@@ -140,6 +157,8 @@ def generate_vascular_network(
 
     # Place pericytes adjacent to endothelial cells
     if peri_params is not None:
+        peri_shape = peri_params.shape_path
+        peri_diameter = peri_params.diameter_mean_um
         endo_cells = list(population.iter_by_type(ENDOTHELIAL))
         n_pericytes = max(1, len(endo_cells) // 4)  # ~25% coverage
         selected = rng.choice(len(endo_cells), size=min(n_pericytes, len(endo_cells)), replace=False)
@@ -147,12 +166,19 @@ def generate_vascular_network(
             ec = endo_cells[idx]
             # Place pericyte at small offset from endothelial cell
             offset = int(endo_diameter * 0.6)
-            angle = rng.uniform(0, 2 * math.pi)
-            px = int(ec.x + offset * math.cos(angle))
-            py = int(ec.y + offset * math.sin(angle))
+            peri_angle = rng.uniform(0, 2 * math.pi)
+            px = int(ec.x + offset * math.cos(peri_angle))
+            py = int(ec.y + offset * math.sin(peri_angle))
             px, py = domain.clamp_position(px, py)
 
-            if not population.has_neighbor_within(px, py, peri_params.diameter_mean_um * 0.6):
+            # Shape-aware collision check
+            collision = population.has_neighbor_within(
+                px, py, peri_diameter * 0.8,
+                query_shape=peri_shape,
+                query_diameter=peri_diameter,
+                query_angle=peri_angle,
+            )
+            if not collision:
                 cid = population.allocate_id()
                 pcell = create_cell(
                     cell_id=cid,
@@ -164,6 +190,7 @@ def generate_vascular_network(
                     type_params=peri_params,
                     rng=rng,
                 )
+                pcell.angle = peri_angle
                 pcell.cell_cycle_phase = "G0"
                 pcell.is_quiescent = True
                 population.add_cell(pcell)
@@ -177,7 +204,8 @@ def populate_normal_tissue(
 ) -> None:
     """Place normal cell types at biologically realistic proportions.
 
-    Uses rejection sampling to avoid overlap with existing cells.
+    Uses rejection sampling with shape-aware collision detection
+    to avoid overlap with existing cells.
     """
     total_area = domain.width_um * domain.height_um
     target_total = int(total_area * config.initialization.cell_density_per_um2)
@@ -212,13 +240,26 @@ def populate_normal_tissue(
 
         n_cells = int(remaining * frac / frac_sum)
         placed = 0
-        min_dist = tp.diameter_mean_um * 0.8
+        diameter = tp.diameter_mean_um
+        shape_path = tp.shape_path
 
         for _ in range(n_cells):
             for attempt in range(max_attempts):
                 x = rng.integers(10, domain.width_um - 10)
                 y = rng.integers(10, domain.height_um - 10)
-                if not population.has_neighbor_within(x, y, min_dist):
+                angle = rng.uniform(0, 2 * math.pi)
+
+                # Shape-aware collision check
+                # Use diameter as search radius (the has_neighbor_within will
+                # do the actual shape-based collision test)
+                collision = population.has_neighbor_within(
+                    x, y,
+                    diameter,  # Search radius
+                    query_shape=shape_path,
+                    query_diameter=diameter,
+                    query_angle=angle,
+                )
+                if not collision:
                     cid = population.allocate_id()
                     cell = create_cell(
                         cell_id=cid,
@@ -230,6 +271,7 @@ def populate_normal_tissue(
                         type_params=tp,
                         rng=rng,
                     )
+                    cell.angle = angle  # Set the orientation
                     # Start normal cells in G0 (quiescent)
                     cell.cell_cycle_phase = "G0"
                     cell.is_quiescent = True

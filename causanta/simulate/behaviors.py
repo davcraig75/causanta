@@ -155,7 +155,14 @@ def can_proliferate(
     tp: CellTypeConfig,
     population: CellPopulation,
 ) -> bool:
-    """Check resource gate for proliferation eligibility."""
+    """Check resource gate for proliferation eligibility.
+
+    Implements homeostatic constraints for adult brain tissue:
+    - Microglia: only proliferate when activated (near tumor/inflammation)
+    - Astrocytes: only proliferate when reactive (near tumor/injury)
+    - Endothelial: only proliferate when sprouting (VEGF-stimulated angiogenesis)
+    - Other normal cells: standard resource-gated proliferation
+    """
     if not tp.can_divide:
         return False
     if tp.max_generations >= 0 and cell.generation >= tp.max_generations:
@@ -164,6 +171,23 @@ def can_proliferate(
         return False
     if cell.glucose_local < tp.glucose_prolif_threshold_mM:
         return False
+
+    # Homeostatic constraints: normal brain cells are quiescent unless activated
+    # Microglia require activation (chemokine/inflammation) to proliferate
+    if cell.cell_type == MICROGLIA:
+        if not cell.is_reactive and cell.activation_level < 0.3:
+            return False
+
+    # Astrocytes require reactive state (tumor proximity) to proliferate
+    if cell.cell_type == ASTROCYTE:
+        if not cell.is_reactive:
+            return False
+
+    # Endothelial cells require VEGF stimulus (is_reactive set by vegf_above_threshold rule)
+    if cell.cell_type == ENDOTHELIAL:
+        if not cell.is_reactive:
+            return False
+
     return True
 
 
@@ -233,13 +257,16 @@ def _execute_division(
 ) -> Optional[LineageRecord]:
     """Execute cell division, create daughter, partition ecDNA."""
     # Find empty adjacent position — tumor cells can displace neighbors
+    # Use shape-aware collision detection
     if not tp.contact_inhibited:
         result = population.find_division_position_with_displacement(
-            parent.x, parent.y, parent.diameter, parent.cell_id, rng
+            parent.x, parent.y, parent.diameter, parent.cell_id, rng,
+            shape_path=parent.shape_path, angle=parent.angle,
         )
     else:
         positions = population.get_adjacent_empty_positions(
-            parent.x, parent.y, parent.diameter, rng
+            parent.x, parent.y, parent.diameter, rng,
+            shape_path=parent.shape_path, angle=parent.angle,
         )
         result = positions[0] if positions else None
 
@@ -368,11 +395,20 @@ def compute_migration(
     # Clamp to domain
     new_x, new_y = domain.clamp_position(new_x, new_y)
 
-    # Volume exclusion: check collision at target
-    if not population.has_neighbor_within(new_x, new_y, cell.diameter * 0.7, exclude_id=cell.cell_id):
+    # Volume exclusion: check collision at target using shape-aware detection
+    collision = population.has_neighbor_within(
+        new_x, new_y,
+        cell.diameter * 0.8,  # Search radius
+        exclude_id=cell.cell_id,
+        query_shape=cell.shape_path,
+        query_diameter=cell.diameter,
+        query_angle=direction,  # Use movement direction as new angle
+    )
+    if not collision:
         old_x, old_y = cell.x, cell.y
         cell.x = new_x
         cell.y = new_y
+        cell.angle = direction  # Update cell orientation to match movement
         population.update_position(cell, old_x, old_y)
 
     # Update persistence direction

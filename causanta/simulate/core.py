@@ -34,6 +34,7 @@ from .behaviors import (
 )
 from .cells import (
     ENDOTHELIAL,
+    MICROGLIA,
     NECROTIC,
     RECRUITED_IMMUNE,
     TUMOR,
@@ -61,6 +62,8 @@ from .io import (
     write_lineage_tsv,
     write_summary_log,
 )
+from .reporting import generate_report
+from .viewer import generate_standalone_html, generate_vega_json
 from .visualization import write_html_viewer, write_vega_spec
 
 
@@ -116,17 +119,18 @@ class Simulation:
             tname = name.type_name if name else f"Type {tid}"
             print(f"    {tname}: {cnt}")
 
-        # Phase 3: Seed tumor
-        seed_tumor(self.population, self.config, self.rng, 0.0)
-        tumor_count = sum(1 for _ in self.population.iter_by_type(TUMOR))
-        print(f"  Tumor cells seeded: {tumor_count}")
-        print()
-
-        # Phase 4: Equilibrate environment
+        # Phase 3: Equilibrate environment (BEFORE tumor seeding)
+        # This ensures glucose/O2 reach steady state before tumor starts consuming
         equilibrate_environment(
             self.env, self.solver, self.population, self.domain, self.config
         )
         print(f"  Equilibrated: mean O2 = {self.env.O2.mean():.1f} mmHg")
+        print()
+
+        # Phase 4: Seed tumor (AFTER equilibration)
+        seed_tumor(self.population, self.config, self.rng, 0.0)
+        tumor_count = sum(1 for _ in self.population.iter_by_type(TUMOR))
+        print(f"  Tumor cells seeded: {tumor_count}")
         print()
 
         # Write initial state
@@ -186,7 +190,7 @@ class Simulation:
         print(f"\nSimulation complete in {elapsed:.1f}s")
         print(f"  Output: {self.output_dir}")
 
-        # Write visualization
+        # Write visualization and report
         if self.output_dir:
             write_vega_spec(
                 self.output_dir,
@@ -196,6 +200,34 @@ class Simulation:
             )
             write_html_viewer(self.output_dir)
             print(f"  Visualization: {self.output_dir / 'index.html'}")
+
+            # Generate standalone HTML viewer with embedded Vega-Lite
+            standalone_path = generate_standalone_html(
+                population=self.population,
+                env=self.env,
+                domain=self.domain,
+                config=self.config,
+                time_hr=float(total),
+                output_path=self.output_dir / "viewer.html",
+                title=f"CAUSANTA Simulation (t={total}h)",
+            )
+            print(f"  Standalone viewer: {standalone_path}")
+
+            # Generate Vega JSON spec with embedded data
+            vega_json_path = generate_vega_json(
+                population=self.population,
+                env=self.env,
+                domain=self.domain,
+                config=self.config,
+                time_hr=float(total),
+                output_path=self.output_dir / "simulation.vl.json",
+            )
+            print(f"  Vega spec: {vega_json_path}")
+
+            # Generate comprehensive report
+            print("Generating report...")
+            report_path = generate_report(self.output_dir, self.config, elapsed)
+            print(f"  Report: {report_path}")
 
     def _step_environment(self) -> None:
         """Phase 1: Diffusion sub-stepping for all substrates."""
@@ -270,7 +302,6 @@ class Simulation:
                         to_remove.append(target.cell_id)
 
         # Also check activated microglia
-        from .cells import MICROGLIA
         for cell in self.population.iter_by_type(MICROGLIA):
             if not cell.is_alive or not cell.is_reactive:
                 continue
@@ -425,16 +456,17 @@ def main() -> None:
     sim = Simulation(config_path)
 
     # Apply CLI overrides
+    tmp_path = None
     if args.hours is not None:
         # Rebuild config with overridden hours — use mutable workaround
         import json
+        import tempfile
         with open(config_path) as f:
             data = json.load(f)
         data.setdefault("time", {})["total_hours"] = args.hours
         if args.seed is not None:
             data["rng_seed"] = args.seed
         # Write temp config
-        import tempfile
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
             json.dump(data, tmp)
             tmp_path = tmp.name
@@ -443,7 +475,16 @@ def main() -> None:
     elif args.seed is not None:
         sim.rng = np.random.default_rng(args.seed)
 
-    sim.run()
+    try:
+        sim.run()
+    finally:
+        # Clean up temp config file
+        if tmp_path is not None:
+            import os
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 if __name__ == "__main__":

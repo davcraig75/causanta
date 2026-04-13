@@ -1,10 +1,25 @@
-"""Spatial domain, coordinate system, and grid operations for CAUSANTA."""
+"""Spatial domain, coordinate system, and grid operations for CAUSANTA.
+
+Performance: Uses Numba JIT compilation when available for hot paths.
+"""
 
 from __future__ import annotations
 
 import numpy as np
 
 from .config import DomainConfig
+
+# Import Numba-accelerated kernels if available
+try:
+    from ._numba_kernels import (
+        HAS_NUMBA,
+        bilinear_interpolate as _numba_bilinear,
+        compute_gradient_at_point as _numba_gradient,
+    )
+except ImportError:
+    HAS_NUMBA = False
+    _numba_bilinear = None
+    _numba_gradient = None
 
 
 class Domain:
@@ -37,6 +52,15 @@ class Domain:
 
         field has shape (ny, nx) with field[row, col] indexing.
         """
+        # Use Numba version if available
+        if HAS_NUMBA and _numba_bilinear is not None:
+            return _numba_bilinear(field, x_um, y_um, float(self.env_grid_um))
+
+        # Pure Python fallback
+        return self._bilinear_interpolate_python(field, x_um, y_um)
+
+    def _bilinear_interpolate_python(self, field: np.ndarray, x_um: float, y_um: float) -> float:
+        """Pure Python bilinear interpolation (fallback)."""
         # Convert to continuous grid coordinates (center of voxel 0 is at 0.5*grid_um)
         gx = x_um / self.env_grid_um - 0.5
         gy = y_um / self.env_grid_um - 0.5
@@ -73,6 +97,15 @@ class Domain:
 
         Returns gradient in units of field_value / um.
         """
+        # Use Numba version if available
+        if HAS_NUMBA and _numba_gradient is not None:
+            return _numba_gradient(field, x_um, y_um, float(self.env_grid_um))
+
+        # Pure Python fallback
+        return self._compute_gradient_python(field, x_um, y_um)
+
+    def _compute_gradient_python(self, field: np.ndarray, x_um: float, y_um: float) -> tuple[float, float]:
+        """Pure Python gradient computation (fallback)."""
         gi, gj = self.um_to_grid(int(x_um), int(y_um))
 
         # Central differences with boundary clamping

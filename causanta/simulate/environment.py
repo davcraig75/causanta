@@ -3,6 +3,8 @@
 Implements reaction-diffusion PDEs on the environment grid using
 implicit Locally One-Dimensional (LOD) operator splitting with
 the vectorized Thomas algorithm for unconditional stability.
+
+Performance: Uses Numba JIT compilation when available for ~10x speedup.
 """
 
 from __future__ import annotations
@@ -11,6 +13,18 @@ import numpy as np
 
 from .config import EnvironmentConfig, SimulationConfig
 from .domain import Domain
+
+# Import Numba-accelerated kernels if available
+try:
+    from ._numba_kernels import (
+        HAS_NUMBA,
+        get_thomas_solver,
+        thomas_solve_batch_numba,
+        thomas_solve_batch_parallel,
+    )
+except ImportError:
+    HAS_NUMBA = False
+    get_thomas_solver = None
 
 
 class EnvironmentFields:
@@ -55,12 +69,12 @@ class EnvironmentFields:
         self.occupant_type[:] = -1
 
 
-def _thomas_solve_batch(
+def _thomas_solve_batch_numpy(
     a: np.ndarray, b: np.ndarray, c: np.ndarray, d: np.ndarray
 ) -> np.ndarray:
-    """Vectorized Thomas algorithm for batch tridiagonal systems.
+    """Pure NumPy Thomas algorithm for batch tridiagonal systems.
 
-    Solves M independent tridiagonal systems simultaneously.
+    Fallback when Numba is not available.
 
     Args:
         a: Sub-diagonal coefficients, shape (M, N-1)
@@ -94,6 +108,20 @@ def _thomas_solve_batch(
         x[:, i] = d_p[:, i] - c_p[:, i] * x[:, i + 1]
 
     return x
+
+
+def _thomas_solve_batch(
+    a: np.ndarray, b: np.ndarray, c: np.ndarray, d: np.ndarray
+) -> np.ndarray:
+    """Dispatch to fastest available Thomas solver.
+
+    Uses Numba JIT-compiled version when available (~10x faster),
+    falls back to pure NumPy implementation otherwise.
+    """
+    if HAS_NUMBA and get_thomas_solver is not None:
+        solver = get_thomas_solver(d.shape[0])
+        return solver(a, b, c, d)
+    return _thomas_solve_batch_numpy(a, b, c, d)
 
 
 class DiffusionSolver:

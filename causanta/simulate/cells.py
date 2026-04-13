@@ -11,6 +11,7 @@ import numpy as np
 
 from .config import CellTypeConfig, DEFAULT_SHAPE_PATHS
 from .domain import Domain
+from .shapes import get_effective_radius, check_shape_collision
 
 # Cell type ID constants
 NEURON = 0
@@ -202,30 +203,65 @@ class CellPopulation:
                             result.append(cell)
         return result
 
-    def has_neighbor_within(self, x: int, y: int, radius: float, exclude_id: int = -1) -> bool:
-        """Check if any living cell is within radius of (x, y)."""
-        r_sq = radius * radius
-        bucket_range = int(math.ceil(radius / self.SPATIAL_HASH_RESOLUTION)) + 1
+    def has_neighbor_within(
+        self,
+        x: int,
+        y: int,
+        radius: float,
+        exclude_id: int = -1,
+        query_shape: str = "",
+        query_diameter: float = 0.0,
+        query_angle: float = 0.0,
+    ) -> bool:
+        """Check if any living cell is within collision range of (x, y).
+
+        If query_shape is provided, performs shape-aware collision detection.
+        Otherwise falls back to simple circle-based check.
+        """
+        # Use larger search radius for shape-aware checks
+        search_radius = radius * 1.5 if query_shape else radius
+        bucket_range = int(math.ceil(search_radius / self.SPATIAL_HASH_RESOLUTION)) + 1
         cx, cy = x // self.SPATIAL_HASH_RESOLUTION, y // self.SPATIAL_HASH_RESOLUTION
+
         for bx in range(cx - bucket_range, cx + bucket_range + 1):
             for by in range(cy - bucket_range, cy + bucket_range + 1):
                 for cid in self._spatial_grid.get((bx, by), ()):
                     if cid == exclude_id:
                         continue
                     cell = self._cells.get(cid)
-                    if cell is not None and cell.is_alive:
+                    if cell is None or not cell.is_alive:
+                        continue
+
+                    if query_shape and cell.shape_path:
+                        # Shape-aware collision check using AABB
+                        if check_shape_collision(
+                            x, y, query_shape, query_diameter, query_angle,
+                            cell.x, cell.y, cell.shape_path, cell.diameter, cell.angle,
+                            margin=0.0,  # No extra margin - shapes already define bounds
+                        ):
+                            return True
+                    else:
+                        # Simple circle check
                         dx = cell.x - x
                         dy = cell.y - y
+                        r_sq = radius * radius
                         if dx * dx + dy * dy <= r_sq:
                             return True
         return False
 
     def get_adjacent_empty_positions(
-        self, x: int, y: int, cell_diameter: float, rng: np.random.Generator
+        self,
+        x: int,
+        y: int,
+        cell_diameter: float,
+        rng: np.random.Generator,
+        shape_path: str = "",
+        angle: float = 0.0,
     ) -> list[tuple[int, int]]:
         """Find unoccupied positions in 8-connected neighborhood for division.
 
         Checks positions at distance = cell_diameter in 8 cardinal/diagonal directions.
+        Uses shape-aware collision detection if shape_path is provided.
         Returns shuffled list of positions that are in-bounds and unoccupied.
         """
         step = int(round(cell_diameter))
@@ -239,11 +275,118 @@ class CellPopulation:
             nx, ny = x + dx, y + dy
             if not self._domain.is_in_bounds(nx, ny):
                 continue
-            # Check for collisions at the candidate position
-            if not self.has_neighbor_within(nx, ny, cell_diameter * 0.8):
+            # Check for collisions at the candidate position using shape-aware detection
+            collision = self.has_neighbor_within(
+                nx, ny,
+                cell_diameter * 0.9,  # Conservative search radius
+                query_shape=shape_path,
+                query_diameter=cell_diameter,
+                query_angle=angle,
+            )
+            if not collision:
                 candidates.append((nx, ny))
         rng.shuffle(candidates)
         return candidates
+
+    def _find_lowest_density_direction(
+        self,
+        x: int,
+        y: int,
+        cell_diameter: float,
+        exclude_id: int,
+    ) -> tuple[float, float]:
+        """Find the direction toward lowest local cell density.
+
+        Used to determine optimal direction for cascade displacement.
+        Returns normalized (dx, dy) direction vector.
+        """
+        # Sample 8 directions and count neighbors in each
+        step = cell_diameter * 2
+        directions = [
+            (1, 0), (0.707, 0.707), (0, 1), (-0.707, 0.707),
+            (-1, 0), (-0.707, -0.707), (0, -1), (0.707, -0.707),
+        ]
+        best_dir = (1.0, 0.0)
+        min_density = float('inf')
+
+        for dx, dy in directions:
+            sample_x = int(x + step * dx)
+            sample_y = int(y + step * dy)
+            if not self._domain.is_in_bounds(sample_x, sample_y):
+                continue
+            neighbors = self.get_neighbors(sample_x, sample_y, cell_diameter * 1.5)
+            density = len([n for n in neighbors if n.cell_id != exclude_id])
+            if density < min_density:
+                min_density = density
+                best_dir = (dx, dy)
+
+        return best_dir
+
+    def _cascade_displace(
+        self,
+        start_x: int,
+        start_y: int,
+        dir_x: float,
+        dir_y: float,
+        cell_diameter: float,
+        exclude_ids: set[int],
+        max_depth: int = 10,
+    ) -> bool:
+        """Cascade displacement along a direction.
+
+        Finds all cells along the ray and pushes them outward.
+        Returns True if displacement succeeded, False if blocked.
+
+        Based on PhysiCell's "budging along shortest path" approach:
+        cells along the displacement ray all shift outward by one cell diameter.
+        """
+        if max_depth <= 0:
+            return False
+
+        step = int(round(cell_diameter))
+        target_x = int(start_x + step * dir_x)
+        target_y = int(start_y + step * dir_y)
+        target_x, target_y = self._domain.clamp_position(target_x, target_y)
+
+        # Check if target is at boundary
+        if target_x <= 10 or target_x >= self._domain.width_um - 10:
+            return False
+        if target_y <= 10 or target_y >= self._domain.height_um - 10:
+            return False
+
+        # Find cells at target position
+        neighbors = self.get_neighbors(target_x, target_y, cell_diameter * 0.8)
+        blockers = [
+            n for n in neighbors
+            if n.cell_id not in exclude_ids
+            and n.cell_type not in (ENDOTHELIAL, PERICYTE)  # Can't push vasculature
+            and n.is_alive
+        ]
+
+        if not blockers:
+            # Empty space found - cascade succeeds
+            return True
+
+        # Need to push blockers first
+        for blocker in blockers:
+            # Recursively try to displace this blocker
+            new_exclude = exclude_ids | {blocker.cell_id}
+            if not self._cascade_displace(
+                blocker.x, blocker.y, dir_x, dir_y, cell_diameter, new_exclude, max_depth - 1
+            ):
+                return False  # Cascade blocked
+
+            # Move this blocker
+            new_x = int(round(blocker.x + step * dir_x))
+            new_y = int(round(blocker.y + step * dir_y))
+            new_x, new_y = self._domain.clamp_position(new_x, new_y)
+
+            old_x, old_y = blocker.x, blocker.y
+            blocker.x = new_x
+            blocker.y = new_y
+            self.update_position(blocker, old_x, old_y)
+
+        return True
 
     def find_division_position_with_displacement(
         self,
@@ -252,61 +395,56 @@ class CellPopulation:
         cell_diameter: float,
         parent_cell_id: int,
         rng: np.random.Generator,
+        shape_path: str = "",
+        angle: float = 0.0,
     ) -> tuple[int, int] | None:
         """Find a position for daughter cell, displacing neighbors if necessary.
 
-        For non-contact-inhibited cells (e.g., tumor), if no empty adjacent
-        position exists, push the least resistant neighbor aside.
+        Uses cascade displacement based on PhysiCell's approach:
+        1. First try empty adjacent positions
+        2. If none, find direction toward lowest density
+        3. Cascade-push all cells along that direction
+        4. Place daughter in the cleared space
+
         Returns position or None if impossible.
         """
-        # First try normal empty positions
-        positions = self.get_adjacent_empty_positions(x, y, cell_diameter, rng)
+        # First try normal empty positions with shape awareness
+        positions = self.get_adjacent_empty_positions(
+            x, y, cell_diameter, rng, shape_path=shape_path, angle=angle
+        )
         if positions:
             return positions[0]
 
-        # No empty position — try to displace a neighbor
-        step = int(round(cell_diameter))
-        offsets = [
-            (-step, -step), (0, -step), (step, -step),
-            (-step, 0),                  (step, 0),
-            (-step, step),  (0, step),   (step, step),
+        # No empty position — try cascade displacement
+        # Find direction toward lowest density (most room to push)
+        dir_x, dir_y = self._find_lowest_density_direction(x, y, cell_diameter, parent_cell_id)
+
+        # Try cascade displacement in this direction
+        exclude_ids = {parent_cell_id}
+        if self._cascade_displace(x, y, dir_x, dir_y, cell_diameter, exclude_ids, max_depth=8):
+            # Displacement succeeded - return the adjacent position
+            step = int(round(cell_diameter))
+            nx = int(x + step * dir_x)
+            ny = int(y + step * dir_y)
+            return self._domain.clamp_position(nx, ny)
+
+        # Try other directions if first choice failed
+        directions = [
+            (1, 0), (0, 1), (-1, 0), (0, -1),
+            (0.707, 0.707), (-0.707, 0.707), (-0.707, -0.707), (0.707, -0.707),
         ]
-        rng.shuffle(offsets)
+        rng.shuffle(directions)
 
-        for dx, dy in offsets:
-            nx, ny = x + dx, y + dy
-            if not self._domain.is_in_bounds(nx, ny):
-                continue
+        for dx, dy in directions:
+            if (dx, dy) == (dir_x, dir_y):
+                continue  # Already tried
+            if self._cascade_displace(x, y, dx, dy, cell_diameter, exclude_ids, max_depth=6):
+                step = int(round(cell_diameter))
+                nx = int(x + step * dx)
+                ny = int(y + step * dy)
+                return self._domain.clamp_position(nx, ny)
 
-            # Find occupants at this position
-            neighbors = self.get_neighbors(nx, ny, cell_diameter * 0.8)
-            # Filter to displaceable cells (not the parent, not endothelial/vascular)
-            displaceable = [
-                n for n in neighbors
-                if n.cell_id != parent_cell_id
-                and n.cell_type not in (ENDOTHELIAL, PERICYTE)
-                and n.is_alive
-            ]
-            if not displaceable:
-                continue
-
-            # Displace the first displaceable neighbor by pushing it outward
-            target = displaceable[0]
-            push_dx = target.x - x
-            push_dy = target.y - y
-            mag = max(1.0, (push_dx**2 + push_dy**2) ** 0.5)
-            push_dist = int(round(cell_diameter))
-            new_tx = int(round(target.x + push_dist * push_dx / mag))
-            new_ty = int(round(target.y + push_dist * push_dy / mag))
-            new_tx, new_ty = self._domain.clamp_position(new_tx, new_ty)
-
-            # Move the displaced cell
-            old_tx, old_ty = target.x, target.y
-            target.x = new_tx
-            target.y = new_ty
-            self.update_position(target, old_tx, old_ty)
-
-            return (nx, ny)
+        return None  # No position found
 
     def iter_living(self) -> Iterator[Cell]:
         """Iterate over all living cells."""
