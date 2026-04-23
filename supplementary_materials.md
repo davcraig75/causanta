@@ -4,6 +4,56 @@
 
 ---
 
+## Table of Contents
+
+**Supplementary Tables**
+- S1: Simulation Cell Types and Behavioral Parameters
+- S2: Microenvironment Reaction-Diffusion Parameters
+- S3: Ground-Truth Causal Effect Parameters
+- S4: ecDNA Segregation Validation Statistics
+- S5: First-Stage Regression Statistics
+- S6: Causal Effect Estimates Comparing OLS and IV Methods
+- S7: Sibling Comparison Validation
+- S8: Causal Discovery Algorithm Performance
+- S9: Sensitivity Analysis Results
+- S10: Placebo Test Results
+- S11: Spatial Heterogeneity of EGFR Effect on Migration
+- S12: Immune System Parameters
+- S13: Immune Killing Mechanics Parameters
+- S14: Oxygen Gradient and Hypoxia Thresholds
+- S15: Binomial Segregation Statistics
+
+**Supplementary Figures**
+- S1: ecDNA Segregation Follows Binomial Distribution
+- S2: First-Stage Regression and Instrument Strength
+- S3: Comparison of OLS and IV Estimates
+- S4: Recovered Causal Graph from PC Algorithm
+- S5: Sensitivity Analysis Visualizations
+- S6: Spatial Heterogeneity of Causal Effects
+- S7: Simulation Dynamics Over Time
+- S8: Complete Structural Causal Model
+- S9: Confounding Structure Visualization
+- S10: Immune Synapse Formation Timeline
+
+**Supplementary Methods**
+- S1: Theoretical Framework for Causal Inference
+- S2: The ecDNA Instrument: Validity Conditions
+- S3: Derivation of IV Estimator
+- S4: Two-Stage Least Squares Implementation
+- S5: Sibling Comparison Design
+- S6: Fixed Effects Panel Regression
+- S7: Statistical Diagnostics
+- S8: Working with Lineage Data
+- S9: Spatial Analysis Methods
+- S10: Time-Series Analysis
+- S11: Common Pitfalls and Solutions
+- S12: Rosenbaum Bounds Calculation
+- S13: E-value Calculation
+- S14: Immune System Implementation
+- S15: Code Examples
+
+---
+
 ## Supplementary Tables
 
 ### Supplementary Table S1: Simulation Cell Types and Behavioral Parameters
@@ -192,17 +242,67 @@ The causal effect of EGFR on migration is strongest at the invasive margin, cons
 
 ---
 
-### Supplementary Table S12: Immune System Parameters
+### Supplementary Table S12: Immune System Recruitment Parameters
 
-| Parameter | Value | Biological Interpretation |
-|-----------|-------|---------------------------|
-| Synapse formation time | 2.5 h | Time for immunological synapse maturation |
-| Kill probability per synapse | 0.25 | Reduced from standard 0.70 for GBM immunosuppression |
-| Exhaustion threshold | ~3 kills | T cells become dysfunctional after repeated activation |
-| Activation threshold | High tumor proximity | Requires dense tumor contact for activation |
-| Recruitment rate | 0.3% per hour | Limited infiltration reflecting blood-brain barrier |
+| Parameter | Default Value | Unit | Description |
+|-----------|---------------|------|-------------|
+| chemokine_threshold | 0.5 | nM | Minimum chemokine (VEGF proxy) for immune recruitment |
+| recruitment_rate_per_hr | 0.01 | h⁻¹ | Rate of new immune cell entry at vascular sites |
+| kill_radius_um | 15.0 | μm | Distance to detect potential targets |
+| synapse_formation_time_hr | 2.5 | h | Time for immunological synapse maturation (GBM: slower) |
+| kill_probability_per_synapse | 0.25 | probability | P(kill) once synapse complete (GBM: immunosuppressed) |
+| min_contact_for_kill_hr | 1.5 | h | Minimum contact before any kill possible |
 
 Parameters calibrated to produce tumor growth despite immune pressure, matching clinical observations of GBM immune evasion.
+
+---
+
+### Supplementary Table S13: Immune Exhaustion and Activation Parameters
+
+**Panel A: Exhaustion Mechanics**
+
+| Parameter | Default Value | Unit | Description |
+|-----------|---------------|------|-------------|
+| max_kills_before_exhaustion | 3 | count | CTLs exhaust after ~3 serial kills (GBM: rapid exhaustion) |
+| exhaustion_per_kill | 0.35 | fraction | Exhaustion increment per kill (0.35 = ~3 kills to full exhaustion) |
+| exhaustion_recovery_rate_per_hr | 0.005 | h⁻¹ | Very slow recovery (GBM: sustained suppression) |
+| exhausted_kill_penalty | 0.8 | fraction | Kill probability multiplier when fully exhausted |
+
+**Panel B: Activation Dynamics**
+
+| Parameter | Default Value | Unit | Description |
+|-----------|---------------|------|-------------|
+| activation_radius_um | 50.0 | μm | Distance to sense tumor for activation |
+| activation_rate_per_hr | 0.3 | h⁻¹ | Rate of activation when tumor nearby |
+| deactivation_rate_per_hr | 0.05 | h⁻¹ | Rate of deactivation when away from tumor |
+| min_activation_for_kill | 0.2 | level | Minimum activation to attempt killing |
+
+---
+
+### Supplementary Table S14: Oxygen Gradient and Hypoxia Thresholds
+
+| Distance from Vessel | O2 (mmHg) | Cellular State | Behavioral Consequence |
+|---------------------|-----------|----------------|------------------------|
+| 0-50 μm | 40-60 | Normoxic | Normal proliferation and metabolism |
+| 50-100 μm | 20-40 | Mildly hypoxic | Reduced proliferation rate |
+| 100-200 μm | 10-20 | Hypoxic threshold | HIF-1α stabilization, VEGF secretion |
+| >200 μm | <10 | Severely hypoxic | Proliferation arrest, Go phenotype |
+
+The hypoxia threshold (approximately 10 mmHg) triggers the Go-or-Grow switch: cells below this threshold cannot proliferate and instead upregulate migration (ψ = 2.0× baseline speed).
+
+---
+
+### Supplementary Table S15: Binomial Segregation Statistics by Parent Copy Number
+
+| Parent ecDNA (N) | Mean Daughter Fraction | Expected | Variance | Expected Var | 95% CI for Fraction |
+|------------------|------------------------|----------|----------|--------------|---------------------|
+| 5 | 0.50 | 0.50 | 0.050 | 0.050 | [0.06, 0.94] |
+| 10 | 0.50 | 0.50 | 0.025 | 0.025 | [0.19, 0.81] |
+| 20 | 0.50 | 0.50 | 0.0125 | 0.0125 | [0.28, 0.72] |
+| 50 | 0.50 | 0.50 | 0.005 | 0.005 | [0.36, 0.64] |
+| 100 | 0.50 | 0.50 | 0.0025 | 0.0025 | [0.40, 0.60] |
+
+Formula: Mean = 0.5, Variance = p(1-p)/N = 0.25/N, 95% CI = 0.5 ± 1.96 × sqrt(0.25/N)
 
 ---
 
@@ -326,19 +426,133 @@ Full graphical representation of the structural causal model with all variables 
                          (via gene dosage)
 ```
 
-Structural equations:
-- $X := X_{base} + \kappa \cdot Z + \epsilon_X$
-- $M := \mathbf{1}[U_{O2} < \tau_{hypoxia}]$
-- $Y_1 := f_{Y1}(X, M, U_{O2})$ (proliferation)
-- $Y_2 := f_{Y2}(X, M)$ (migration)
-- $Y_3 := f_{Y3}(X, M)$ (VEGF secretion)
-- $Y_4 := f_{Y4}(X)$ (survival)
+---
+
+### Supplementary Figure S9: Confounding Structure Visualization
+
+```
+       ┌─────────────────────────────────────────────┐
+       │           CONFOUNDED RELATIONSHIP           │
+       └─────────────────────────────────────────────┘
+
+                         Hypoxia
+                        (CONFOUNDER)
+                       ╱           ╲
+                      ╱             ╲
+                     ▼               ▼
+               ┌──────────┐    ┌──────────┐
+               │   EGFR   │ ── │Migration │
+               │Expression│ ?  │  Speed   │
+               └──────────┘    └──────────┘
+
+       Is the EGFR→Migration arrow real, or is it
+       entirely explained by the hypoxia→both paths?
+```
+
+Standard regression cannot distinguish these scenarios. The EGFR-migration correlation might be entirely spurious due to confounding by hypoxia, which stabilizes HIF-1α and simultaneously increases both EGFR transcription and migration via the Go-or-Grow phenotype.
+
+---
+
+### Supplementary Figure S10: Immunological Synapse Formation Timeline
+
+```
+Timeline of CTL-Tumor Interaction:
+
+0h          0.5h         1.5h         2.5h         3h+
+│           │            │            │            │
+▼           ▼            ▼            ▼            ▼
+┌─────┐   ┌─────┐      ┌─────┐      ┌─────┐      ┌─────┐
+│     │   │     │      │     │      │     │      │     │
+│ TCR │──►│Stable│────►│Kill │────►│Kill │────►│Exh- │
+│Recog│   │Synap│      │Poss │      │Prob │      │aust │
+│     │   │     │      │ible │      │=25% │      │ ion │
+└─────┘   └─────┘      └─────┘      └─────┘      └─────┘
+   │          │            │            │            │
+   ▼          ▼            ▼            ▼            ▼
+ ~30min    1-2 hr      Perforin/    Success     After
+           synapse     granzyme      leads      ~3 kills
+           formation   release       to kill
+```
+
+Kill probability calculation:
+- If contact_duration < min_contact_for_kill (1.5h): P(kill) = 0
+- Otherwise: P(kill) = kill_probability_per_synapse × (contact_duration / synapse_formation_time) × (1 - exhaustion_level × exhausted_kill_penalty) × activation_level
 
 ---
 
 ## Supplementary Methods
 
-### S1. Derivation of IV Estimator
+### S1. Theoretical Framework for Causal Inference
+
+#### The Fundamental Problem
+
+In observational data, correlation does not imply causation. When we observe cells with high ecDNA dividing faster, several explanations exist:
+
+| Explanation | Mechanism | Implication |
+|-------------|-----------|-------------|
+| Causal | ecDNA directly causes faster division | Effect is real |
+| Reverse causation | Fast-dividing cells accumulate more ecDNA | Direction is backwards |
+| Confounding | A third variable (e.g., O2) causes both | Association is spurious |
+
+Standard regression cannot distinguish these scenarios when confounders are unobserved.
+
+#### Why ecDNA Enables Causal Inference
+
+CAUSANTA exploits the fact that ecDNA segregation acts as a natural randomizer. When a parent cell divides:
+
+- Parent has N ecDNA copies at a specific location with specific O2 level
+- After S-phase replication: N' ≈ 2N copies
+- Daughter A receives Binomial(N', 0.5) copies
+- Daughter B receives the remaining copies
+
+The siblings share the same parent (identical genetics), same location (identical environment at division), and same time (identical temporal confounders). The only difference is ecDNA count, which was assigned randomly. This mimics a randomized controlled trial within each cell division.
+
+#### The Causal Structure
+
+```
+ecDNA (Instrument) → Gene Expression (Exposure) → Phenotype (Outcome)
+                                ↑                        ↑
+                                └─────── Confounder ─────┘
+                                        (e.g., O2)
+```
+
+The key insight: confounders can affect both expression and phenotype, but they cannot affect ecDNA allocation because segregation is random and determined by physical partitioning during cytokinesis.
+
+---
+
+### S2. The ecDNA Instrument: Validity Conditions
+
+For ecDNA to be a valid instrumental variable (IV), three conditions must hold:
+
+**Relevance**: The instrument must affect the exposure.
+- ecDNA copy number directly affects oncogene expression (gene dosage effect)
+- More copies = more mRNA = more protein
+- Tested via first-stage F-statistic (must exceed 10)
+
+**Independence (Randomization)**: The instrument must be independent of confounders.
+- Segregation follows Binomial(N, 0.5) regardless of cell state
+- The number of copies a daughter receives is determined by physical partitioning
+- Tested via correlation with potential confounders (should be near zero)
+
+**Exclusion Restriction**: The instrument affects the outcome only through the exposure.
+- ecDNA affects phenotype solely via gene expression
+- There is no direct ecDNA → behavior pathway independent of transcription
+- Cannot be tested directly; requires biological reasoning
+
+#### Segregation Statistics
+
+The binomial segregation model predicts specific properties:
+
+| Statistic | Formula | Example (N=20) |
+|-----------|---------|----------------|
+| Mean daughter fraction | 0.5 | 10 copies |
+| Variance of fraction | p(1-p)/N | 0.0125 |
+| Standard deviation | sqrt(0.25/N) | 0.112 |
+| 95% CI for fraction | 0.5 ± 1.96×SD | [0.28, 0.72] |
+
+---
+
+### S3. Derivation of IV Estimator
 
 The instrumental variable estimator for the causal effect of X on Y is derived as follows. Given the structural equations:
 
@@ -356,12 +570,24 @@ This is consistent because:
 - Therefore: $Cov(Y,Z) = \beta \cdot Cov(X,Z)$
 - Rearranging: $\beta = \frac{Cov(Y,Z)}{Cov(X,Z)} = \hat{\beta}_{IV}$
 
-### S2. Two-Stage Least Squares Implementation
+#### Mathematical Intuition
+
+If we denote Z = ecDNA (instrument), X = EGFR expression (exposure), Y = Migration (outcome), and U = Hypoxia (confounder):
+
+The problem with OLS: Cov(X, U) ≠ 0 (EGFR is correlated with hypoxia)
+
+2SLS solution: Use X̂ = E[X|Z] instead. Since Cov(Z, U) = 0 (ecDNA is random), we have Cov(X̂, U) = 0.
+
+---
+
+### S4. Two-Stage Least Squares Implementation
 
 **Stage 1:** Regress X on Z and covariates W:
 $$X = \gamma_0 + \gamma_1 Z + \gamma_2 W + \eta$$
 
 Obtain predicted values $\hat{X} = \hat{\gamma}_0 + \hat{\gamma}_1 Z + \hat{\gamma}_2 W$
+
+This captures only the variation in EGFR that is caused by ecDNA (the random part).
 
 **Stage 2:** Regress Y on $\hat{X}$ and covariates W:
 $$Y = \beta_0 + \beta_1 \hat{X} + \beta_2 W + \epsilon$$
@@ -370,13 +596,27 @@ The coefficient $\hat{\beta}_1$ is the 2SLS estimate of the causal effect.
 
 Standard errors are computed using the robust sandwich estimator to account for the two-stage procedure.
 
-### S3. Sibling Comparison Derivation
+#### Why This Works
+
+The coefficient β₁ is the causal effect of gene expression on the outcome. Confounding is removed because we only use variation in expression that comes from the random instrument. Any correlation between EGFR_predicted and migration must be causal, because the randomness ensures no confounding.
+
+---
+
+### S5. Sibling Comparison Design
+
+The sibling comparison design compares cells that share a parent, eliminating all shared confounders.
+
+For each division event:
+- Parent: ecDNA = N
+- Daughter A: ecDNA = N_A
+- Daughter B: ecDNA = N_B (where N_A + N_B ≈ N')
+
+**The sibling difference model:**
 
 For siblings A and B from the same division:
 - $Z_A + Z_B = N'$ (ecDNA copies sum to replicated pool)
 - $Z_A \sim Binomial(N', 0.5)$
 
-The sibling difference model:
 $$\Delta Y = Y_A - Y_B = \beta(X_A - X_B) + (\epsilon_A - \epsilon_B)$$
 
 Because siblings share all confounders (genetics, spatial origin, temporal history):
@@ -384,9 +624,157 @@ $$E[\Delta Y | \Delta X] = \beta \cdot \Delta X$$
 
 where $\Delta X = \kappa \cdot \Delta Z + (\epsilon_{X,A} - \epsilon_{X,B})$
 
-The sibling estimator controls for all shared confounders, including unobserved ones.
+This design removes all confounders shared between siblings, including genetics, location at birth, and time of origin. The only remaining variation is the random segregation difference.
 
-### S4. Rosenbaum Bounds Calculation
+---
+
+### S6. Fixed Effects Panel Regression
+
+Controls for cell-level and time-level confounders using panel data.
+
+**Model:**
+$$Y_{it} = \beta \cdot ecDNA_{it} + \alpha_i + \tau_t + \epsilon_{it}$$
+
+Where:
+- $Y_{it}$ = outcome for cell i at time t
+- $\alpha_i$ = cell fixed effect (controls lineage confounders)
+- $\tau_t$ = time fixed effect (controls temporal confounders)
+
+This approach tracks individual cells over time and uses within-cell variation in ecDNA (after division events) to estimate causal effects.
+
+---
+
+### S7. Statistical Diagnostics
+
+#### Checking Instrument Strength
+
+A weak instrument leads to biased 2SLS estimates.
+
+**F-Statistic Test:**
+
+First-stage regression: gene_expr ~ ecDNA + controls
+
+The F-statistic tests whether the coefficient on ecDNA is significantly different from zero.
+
+| F-Statistic | Interpretation |
+|-------------|----------------|
+| F > 10 | Strong instrument, 2SLS is reliable |
+| F in [5, 10] | Moderate, some bias possible |
+| F < 5 | Weak instrument, do NOT trust 2SLS |
+
+In CAUSANTA, the instrument is strong by design (ecDNA directly determines phenotype), but always verify.
+
+#### Checking for Confounding
+
+Compare estimates across methods:
+
+| Method | Estimate | If Confounded... |
+|--------|----------|------------------|
+| OLS | β_OLS | Biased toward confounder effect |
+| 2SLS/IV | β_IV | Unbiased (if instrument valid) |
+| Sibling | β_sib | Unbiased (controls shared confounders) |
+
+**Key diagnostic:** If β_OLS differs significantly from β_IV, confounding is present.
+
+#### Heterogeneity Analysis
+
+Check if effects vary by subgroup (e.g., near vs. far from vessel). If effects differ substantially, there may be effect modification (true heterogeneity) or residual confounding (invalid instrument in subgroup).
+
+---
+
+### S8. Working with Lineage Data
+
+#### Data Structure
+
+The lineage.tsv file records every division event:
+
+| Column | Description |
+|--------|-------------|
+| time_hr | Simulation time of division |
+| parent_id | ID of parent cell |
+| parent_ecDNA_before | Parent's ecDNA before segregation |
+| parent_ecDNA_after | Parent's ecDNA after segregation |
+| daughter_id | ID of new daughter cell |
+| daughter_ecDNA | Daughter's ecDNA count |
+| x, y | Location of division |
+| generation | Generation number in lineage |
+
+#### Reconstructing Lineage Trees
+
+Lineage data can be represented as a directed graph where nodes are cells and edges represent division events. This enables:
+- Finding all descendants of the original tumor
+- Computing ecDNA trajectories through lineages
+- Identifying sibling pairs for comparison analysis
+
+---
+
+### S9. Spatial Analysis Methods
+
+#### Nutrient Gradients
+
+Oxygen and glucose form gradients from vessels into the tissue. The hypoxia threshold (approximately 10 mmHg) is critical: below this, cells switch to the Go phenotype (increased migration) and cannot proliferate.
+
+#### Spatial Confounding
+
+Location can confound ecDNA-phenotype relationships if selection operates spatially. If high-ecDNA cells are more likely to survive in certain locations, this can bias estimates. Test by checking whether ecDNA correlates with vessel distance.
+
+#### Spatial Regression
+
+Control for location in regressions by including spatial coordinates and distance to center as covariates.
+
+---
+
+### S10. Time-Series Analysis
+
+#### Growth Curve Fitting
+
+Fit standard growth models to tumor dynamics:
+
+| Model | Equation | Use Case |
+|-------|----------|----------|
+| Exponential | N(t) = N0 × exp(r×t) | Unlimited growth, constant doubling time |
+| Logistic | N(t) = K / (1 + ((K-N0)/N0) × exp(-r×t)) | Carrying capacity K, S-shaped curve |
+| Gompertz | N(t) = K × exp(-exp(a - b×t)) | Asymmetric S-curve, common for tumors |
+
+#### Phase Detection
+
+Identify growth phases automatically by computing local growth rate (derivative of log count) and classifying as lag (rate < threshold, early), exponential (rate > threshold), or plateau (rate < threshold, late).
+
+---
+
+### S11. Common Pitfalls and Solutions
+
+#### Pitfall 1: Selection Bias
+
+**Problem:** We only observe surviving cells. If high-ecDNA cells die more frequently, the survivors are "special" (lucky), and their phenotypes may not represent typical high-ecDNA cells.
+
+**Solutions:**
+- Use lineage data to include all cells (dead and alive)
+- Model death as a competing risk
+- Use inverse probability weighting
+
+#### Pitfall 2: Time-Varying Confounding
+
+**Problem:** The environment changes over time. At t=0, high O2 everywhere; at t=500, low O2 near tumor core. Cells born at different times face different environments.
+
+**Solutions:**
+- Include time fixed effects
+- Use within-time-window comparisons
+- Control for local environment at time of measurement
+
+#### Pitfall 3: Measurement Error
+
+**Problem:** In real data, ecDNA count is estimated with error. Classical measurement error in X attenuates (biases toward zero) OLS estimates.
+
+**Solution:** IV methods are robust to measurement error in the exposure. This is another reason to use ecDNA as an instrument.
+
+#### Pitfall 4: Multiple Testing
+
+When testing multiple causal effects (α, β, δ, γ), adjust for multiplicity using Bonferroni correction (α_adjusted = 0.05 / number of tests) or FDR correction (Benjamini-Hochberg).
+
+---
+
+### S12. Rosenbaum Bounds Calculation
 
 Following Rosenbaum (2002), we parameterize hidden confounding by Γ, the maximum odds ratio relating an unmeasured confounder to treatment assignment:
 
@@ -394,7 +782,11 @@ $$\frac{1}{\Gamma} \leq \frac{P(Z=1|X,U)/P(Z=0|X,U)}{P(Z=1|X',U')/P(Z=0|X',U')} 
 
 For each value of Γ, we compute bounds on the p-value for the IV estimate. The critical Γ is the smallest value at which the upper bound on the p-value exceeds 0.05.
 
-### S5. E-value Calculation
+**Interpretation:** If the critical Γ is large (e.g., > 3), an unmeasured confounder would need to have a very strong association with both the instrument and the outcome to explain away the observed effect. Given that ecDNA segregation is mechanistically random, such confounding is biologically implausible.
+
+---
+
+### S13. E-value Calculation
 
 Following VanderWeele and Ding (2017), the E-value for a risk ratio RR is:
 
@@ -404,11 +796,184 @@ This represents the minimum strength of association that an unmeasured confounde
 
 For the confidence interval, we compute the E-value for the bound of the 95% CI closest to the null.
 
+**Interpretation:** An E-value of 3.1 means an unmeasured confounder would need to be associated with both ecDNA and the outcome by at least RR = 3.1 to fully explain the observed effect. No known biological mechanism links ecDNA segregation to microenvironmental variables at this magnitude.
+
+---
+
+### S14. Immune System Implementation
+
+#### Biological Background
+
+The immune system module simulates cytotoxic T lymphocyte (CTL) and microglia-mediated tumor killing using biologically realistic immunological synapse mechanics. Unlike simple probabilistic death rates, this implementation models the time-dependent formation of immunological synapses, CTL exhaustion, and activation dynamics.
+
+#### Immunological Synapse Formation
+
+When a CTL encounters a target tumor cell, it does not kill instantly. Instead:
+
+1. **Recognition Phase (~30 min):** The T cell receptor (TCR) recognizes MHC-presented antigens
+2. **Synapse Formation (1-2 hours):** A stable immunological synapse forms with organized signaling domains
+3. **Cytotoxic Phase:** Perforin/granzyme release causes target cell death
+
+This process is modeled as a contact-duration-dependent kill probability.
+
+#### Serial Killing and Exhaustion
+
+CTLs can kill multiple targets sequentially (serial killing), but their efficiency declines after approximately 10 kills:
+
+- Initial Phase: High killing efficiency
+- Exhaustion: Progressive loss of cytotoxic granules
+- Terminal Phase: Loss of proliferative capacity
+
+#### Exhaustion Model
+
+```
+# On successful kill:
+exhaustion_level += exhaustion_per_kill
+exhaustion_level = min(1.0, exhaustion_level)
+
+# Kill probability reduction:
+effective_prob = base_prob × (1.0 - exhaustion_level × exhausted_kill_penalty)
+
+# Recovery when not in contact:
+if not in_contact:
+    exhaustion_level -= exhaustion_recovery_rate_per_hr × dt
+```
+
+#### GBM Immunosuppression
+
+Glioblastoma multiforme (GBM) is characterized by profound immunosuppression. The default parameters reflect this biology:
+
+1. **Blood-Brain Barrier (BBB):** Limited T cell access to CNS
+2. **Tumor-Associated Macrophages (TAMs):** Re-educated to immunosuppressive M2-like phenotype
+3. **Immunosuppressive Cytokines:** TGF-β, IL-10, PD-L1 inhibit T cell function
+4. **Metabolic Reprogramming:** Hypoxic, acidic microenvironment impairs T cells
+5. **Reduced MHC Expression:** Tumor cells become "invisible" to CTLs
+
+The default immune parameters create an immunosuppressive environment where tumors grow despite immune pressure, matching clinical observations.
+
+---
+
+### S15. Code Examples
+
+#### Complete Analysis Pipeline
+
+```python
+"""Complete CAUSANTA analysis pipeline."""
+
+from pathlib import Path
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def analyze_simulation(output_dir: Path):
+    """Run complete analysis on simulation output."""
+    
+    # 1. Load data
+    summary = load_summary_log(output_dir / "summary.log")
+    lineage = load_lineage_tsv(output_dir / "lineage.tsv")
+    
+    cell_files = sorted(output_dir.glob("cells_t*.tsv"))
+    final_cells = load_cells_tsv(cell_files[-1])
+    
+    # 2. Segregation analysis
+    daughter_fractions = []
+    for div in lineage:
+        if div['parent_ecDNA_before'] > 0:
+            frac = div['daughter_ecDNA'] / div['parent_ecDNA_before']
+            daughter_fractions.append(frac)
+    
+    if daughter_fractions:
+        mean_frac = np.mean(daughter_fractions)
+        t_stat, p_val = stats.ttest_1samp(daughter_fractions, 0.5)
+        print(f"Mean daughter fraction: {mean_frac:.3f}")
+        print(f"T-test p-value: {p_val:.4f}")
+    
+    # 3. First-stage regression
+    tumor_cells = [c for c in final_cells if c['cell_type'] == 6]
+    Z = np.array([c['ecDNA_count'] for c in tumor_cells])
+    X = np.array([c['egfr_expression'] for c in tumor_cells])
+    
+    slope, intercept, r, p, se = stats.linregress(Z, X)
+    n = len(Z)
+    F = (r**2 / 1) / ((1 - r**2) / (n - 2))
+    print(f"First-stage F = {F:.1f}")
+    
+    # 4. 2SLS estimation
+    X_hat = intercept + slope * Z
+    Y = np.array([c['migration_rate'] for c in tumor_cells])
+    
+    beta1, beta0, _, _, _ = stats.linregress(X_hat, Y)
+    print(f"2SLS estimate (δ): {beta1:.4f}")
+    print(f"True effect: 0.05")
+    
+    return {'F_stat': F, 'beta_IV': beta1}
+```
+
+#### Testing Segregation Independence
+
+```python
+from scipy import stats
+
+def test_segregation_independence(lineage, cells):
+    """Test if ecDNA fraction correlates with potential confounders."""
+    
+    # Compute daughter fractions
+    fractions = []
+    o2_levels = []
+    positions = []
+    
+    for div in lineage:
+        if div['parent_ecDNA_before'] > 0:
+            frac = div['daughter_ecDNA'] / div['parent_ecDNA_before']
+            fractions.append(frac)
+            
+            # Get O2 at division location
+            o2 = get_o2_at_location(div['x'], div['y'])
+            o2_levels.append(o2)
+            
+            dist = np.sqrt(div['x']**2 + div['y']**2)
+            positions.append(dist)
+    
+    # Test correlations
+    r_o2, p_o2 = stats.pearsonr(fractions, o2_levels)
+    r_pos, p_pos = stats.pearsonr(fractions, positions)
+    
+    print(f"Correlation with O2: r={r_o2:.3f}, p={p_o2:.3f}")
+    print(f"Correlation with position: r={r_pos:.3f}, p={p_pos:.3f}")
+    
+    # Should both be near zero and non-significant
+```
+
 ---
 
 ## References for Supplementary Materials
 
-1. Rosenbaum PR. *Observational Studies*. 2nd ed. Springer; 2002.
-2. VanderWeele TJ, Ding P. Sensitivity analysis in observational research: introducing the E-value. *Ann Intern Med*. 2017;167(4):268-274.
-3. Spirtes P, Glymour C, Scheines R. *Causation, Prediction, and Search*. 2nd ed. MIT Press; 2000.
-4. Staiger D, Stock JH. Instrumental variables regression with weak instruments. *Econometrica*. 1997;65(3):557-586.
+1. Angrist JD, Pischke JS. *Mostly Harmless Econometrics: An Empiricist's Companion*. Princeton University Press; 2009.
+
+2. Pearl J. *Causality: Models, Reasoning, and Inference*. 2nd ed. Cambridge University Press; 2009.
+
+3. Hernán MA, Robins JM. *Causal Inference: What If*. Chapman & Hall/CRC; 2020.
+
+4. Rosenbaum PR. *Observational Studies*. 2nd ed. Springer; 2002.
+
+5. VanderWeele TJ, Ding P. Sensitivity analysis in observational research: introducing the E-value. *Ann Intern Med*. 2017;167(4):268-274.
+
+6. Spirtes P, Glymour C, Scheines R. *Causation, Prediction, and Search*. 2nd ed. MIT Press; 2000.
+
+7. Staiger D, Stock JH. Instrumental variables regression with weak instruments. *Econometrica*. 1997;65(3):557-586.
+
+8. Huppa JB, Davis MM. T-cell-antigen recognition and the immunological synapse. *Nat Rev Immunol*. 2003;3(12):973-83.
+
+9. Dustin ML. The immunological synapse. *Arthritis Res Ther*. 2008;10(Suppl 1):S11.
+
+10. Boissonnas A, et al. In vivo imaging of cytotoxic T cell infiltration and elimination of a solid tumor. *J Exp Med*. 2007;204(2):345-56.
+
+11. Weigelin B, et al. Intravital third harmonic generation microscopy of collective melanoma cell invasion. *Intravital*. 2012;1(1):32-43.
+
+12. Breart B, et al. Two-photon imaging of intratumoral CD8+ T cell cytotoxic activity during adoptive T cell therapy in mice. *J Clin Invest*. 2008;118(4):1390-7.
+
+13. Wiedemann A, et al. Cytotoxic T lymphocytes kill multiple targets simultaneously via spatiotemporal uncoupling of lytic and stimulatory synapses. *PNAS*. 2006;103(29):10985-90.
+
+---
+
+*CAUSANTA Supplementary Materials v0.2.0*
