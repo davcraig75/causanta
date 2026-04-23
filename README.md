@@ -399,13 +399,19 @@ Effects can be estimated separately by:
 
 All documentation is in the [`docs/`](docs/) folder.
 
+### Theory & Specification
+
+| Document | Description |
+|----------|-------------|
+| **[Theoretical Framework](docs/theory.md)** | Complete specification: domain, cell model, environment PDEs, behavioral rules, SIV mechanism, causal inference methods |
+
 ### Manuscript
 
 | Document | Description |
 |----------|-------------|
 | **[Main Manuscript](docs/manuscript/manuscript.md)** | Full paper: *Extrachromosomal DNA as a Causal Instrument for Spatial Multi-Omics* |
 | **[Manuscript Guide](docs/manuscript/README.md)** | Figures, viewing instructions, citation info |
-| **[Supplementary Methods](docs/supplementary_materials.md)** | Mathematical framework, 2SLS derivation, bootstrap, power analysis |
+| **[Supplementary Methods](docs/supplementary_materials.md)** | Statistical methods for publication (2SLS, bootstrap, power) |
 
 ### Guides
 
@@ -460,13 +466,14 @@ causanta/
 │       └── causal_dag.py     # DAG construction
 │
 ├── docs/                     # Documentation
-│   ├── tutorial.md
-│   ├── analysis_guide.md
-│   ├── supplementary_materials.md
-│   ├── immune_system.md
+│   ├── theory.md             # Complete theoretical framework
+│   ├── tutorial.md           # Causal inference tutorial
+│   ├── analysis_guide.md     # Statistical methods guide
+│   ├── supplementary_materials.md  # Publication methods
+│   ├── immune_system.md      # Immune system modeling
 │   └── manuscript/           # Publication manuscript
-│       ├── manuscript.md
-│       └── figures/
+│       ├── manuscript.md     # Main paper (Markdown)
+│       └── figures/          # Publication figures
 │
 ├── scripts/                  # Analysis scripts
 │   ├── run_comprehensive_analysis.py
@@ -638,6 +645,11 @@ Please finalize my session with the following steps:
 - **Fixed:** `causanta/analyze/heterogeneity.py` - Missing `.get()` defaults for environment fields
 - **Removed:** Deprecated `old/` directory contents
 - **Removed:** Generated HTML docs (now using Markdown)
+
+- **Added:** `docs/theory.md` - Complete theoretical framework document
+  - Converted from CAUSANTA_theoretical_framework.md.pdf
+  - 14 sections covering: motivation, domain, cell model, environment PDEs, behavioral rules, SIV mechanism, initialization, simulation loop, output spec, visualization, math relationships, validation targets, causal inference methods, implementation architecture
+  - Updated to reflect current codebase implementation
 
 ---
 
