@@ -553,6 +553,94 @@ python -m causanta.simulate.cleanup output/run_*/data --keep 0.02
 
 ---
 
+## Session Finalization
+
+### End-of-Session Prompt
+
+**Copy and paste this prompt at the end of your Claude Code session to finalize changes:**
+
+```
+Please finalize my session with the following steps:
+
+1. **Verify all code changes:**
+   - Run `pytest tests/ -v` and fix any failures
+   - Check that all modified modules have consistent imports
+   - Verify no syntax errors in changed files
+
+2. **Update documentation:**
+   - If I modified any analysis methods, update docs/supplementary_materials.md
+   - If I changed simulation behavior, update the relevant section in README.md
+   - If I added new functions/classes, add them to the Module Reference tables in README.md
+
+3. **Check manuscript consistency:**
+   - If my changes affect the scientific claims, flag sections of docs/manuscript/manuscript.md that may need updates
+   - Verify figure references still match if I changed visualization code
+
+4. **Update the changelog:**
+   - Add an entry to the "Change Log" section in README.md with today's date
+   - Summarize what was changed, added, fixed, or removed
+   - Include file paths for major changes
+
+5. **Commit with descriptive message:**
+   - Stage all related changes
+   - Write a commit message summarizing the session's work
+
+6. **Final status report:**
+   - List any TODOs or follow-up items for next session
+   - Note any known issues introduced or discovered
+```
+
+### What the Finalization Covers
+
+| Check | Purpose |
+|-------|---------|
+| Test suite | Catch regressions |
+| Module reference | Keep README accurate |
+| Supplementary materials | Maintain methods documentation |
+| Manuscript flags | Prevent paper/code divergence |
+| Changelog | Track project history |
+| Commit | Clean git history |
+
+---
+
+## Change Log
+
+### 2024-04-23
+
+**Major documentation overhaul and infrastructure additions**
+
+- **Added:** Comprehensive causal analysis infrastructure
+  - `causanta/analyze/bootstrap.py` - BCa bootstrap confidence intervals
+  - `causanta/analyze/power.py` - Power analysis and sample size calculation
+  - `causanta/analyze/heterogeneity.py` - Stratified IV analysis by region/hypoxia
+  - `causanta/simulate/sweep.py` - Parameter sweep system
+  - `causanta/visualize/` - Publication figure generation with Nature Methods styling
+
+- **Added:** Biological validation scenarios in `scripts/scenarios/`
+  - `margin_invasion.py` - Does ecDNA drive invasion?
+  - `drug_response.py` - Does ecDNA predict drug response?
+  - `driver_vs_passenger.py` - Can IV distinguish drivers from passengers?
+  - `immune_selection.py` - Does immune pressure select for/against ecDNA?
+
+- **Moved:** `manuscript/` → `docs/manuscript/`
+  - Converted Word document to GitHub-renderable Markdown
+  - Added CSS styling for academic paper appearance
+  - Created publication figures (DAG, segregation, IV estimates, spatial)
+
+- **Updated:** README.md expanded for collaborator onboarding
+  - Added scientific background and SIV framework explanation
+  - Added architecture overview with 6-phase simulation loop
+  - Added module reference tables for all subsystems
+  - Added ground truth parameters with equations
+  - Added session finalization prompt and changelog
+
+- **Fixed:** `causanta/analyze/iv.py` - `se_first` variable was undefined
+- **Fixed:** `causanta/analyze/heterogeneity.py` - Missing `.get()` defaults for environment fields
+- **Removed:** Deprecated `old/` directory contents
+- **Removed:** Generated HTML docs (now using Markdown)
+
+---
+
 ## Citation
 
 If you use CAUSANTA in your research, please cite:
