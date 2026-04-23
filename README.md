@@ -109,12 +109,15 @@ For publication-ready validation:
 
 ## Documentation
 
+All documentation is in the [`docs/`](docs/) folder.
+
 ### Manuscript
 
 | Document | Description |
 |----------|-------------|
 | **[Main Manuscript](docs/manuscript/manuscript.md)** | Full paper: *Extrachromosomal DNA as a Causal Instrument for Spatial Multi-Omics* |
-| **[Supplementary Materials](docs/manuscript/supplementary_materials.docx)** | Extended methods, additional figures, validation details |
+| **[Manuscript Guide](docs/manuscript/README.md)** | Figures, viewing instructions, citation info |
+| **[Supplementary Methods](docs/supplementary_materials.md)** | Mathematical framework, 2SLS derivation, bootstrap, power analysis |
 
 ### Guides
 
@@ -124,12 +127,11 @@ For publication-ready validation:
 | **[Analysis Guide](docs/analysis_guide.md)** | Detailed statistical methods and interpretation |
 | **[Immune System](docs/immune_system.md)** | Tumor-immune interaction modeling |
 
-### Technical Reference
+### Reference
 
 | Document | Description |
 |----------|-------------|
-| **[Supplementary Methods](docs/supplementary_materials.md)** | Full methodological details (2SLS, bootstrap, power analysis) |
-| **[Parameters Reference](causanta/simulate/params/default.json)** | Full configuration options |
+| **[Parameters](causanta/simulate/params/default.json)** | Full simulation configuration options |
 
 ---
 
