@@ -47,22 +47,88 @@ python -m causanta.simulate.core my_params.json
 ### Analyze Results
 
 ```bash
-# Command-line analysis
-python -m causanta.analyze.cli output/run_*/data/
+# Comprehensive analysis
+python scripts/run_comprehensive_analysis.py output/run_*/data/
 
-# Or use Python
-python examples/analyze_simulation.py output/run_*/data/
+# Full validation study (baseline, effect sizes, power)
+python scripts/run_simulation_study.py --study full --output-dir results/validation
 ```
+
+### Generate Publication Figures
+
+```python
+from causanta.visualize import (
+    apply_nature_style,
+    create_main_figure_1,  # Conceptual framework
+    create_main_figure_2,  # Instrument validation
+    create_main_figure_3,  # Causal estimation
+    create_main_figure_4,  # Power analysis
+    create_main_figure_5,  # Heterogeneity
+    create_main_figure_6,  # Robustness
+)
+
+apply_nature_style()
+create_main_figure_1(output_dir="figures/")
+```
+
+---
+
+## Analysis Capabilities
+
+CAUSANTA provides a comprehensive suite of causal inference tools:
+
+| Method | Module | Description |
+|--------|--------|-------------|
+| **2SLS / IV Regression** | `analyze/iv.py` | Two-stage least squares with full diagnostics |
+| **BCa Bootstrap** | `analyze/bootstrap.py` | Bias-corrected confidence intervals |
+| **Power Analysis** | `analyze/power.py` | Sample size calculation, MDE, power curves |
+| **Heterogeneity** | `analyze/heterogeneity.py` | Effects by region, hypoxia, ecDNA level |
+| **Parameter Sweeps** | `simulate/sweep.py` | Systematic variation studies |
+
+### IV Diagnostics
+
+- F-statistic for instrument strength
+- Wu-Hausman endogeneity test
+- Anderson-Rubin weak-IV robust inference
+- Rosenbaum sensitivity bounds
+- E-value for confounding robustness
+
+### Success Criteria
+
+For publication-ready validation:
+
+| Criterion | Target |
+|-----------|--------|
+| IV accuracy | <15% bias vs ground truth |
+| CI coverage | ≥90% (95% nominal) |
+| Power | ≥80% at effect size 0.05 |
+| Segregation | p > 0.05 vs Binomial |
+| First-stage F | >10 (strong instrument) |
 
 ---
 
 ## Documentation
 
+### Manuscript
+
 | Document | Description |
 |----------|-------------|
-| **[Tutorial: Causal Inference](docs/tutorial.html)** | Step-by-step guide to causal effect estimation with CAUSANTA |
-| **[Analysis Guide](docs/analysis_guide.html)** | Detailed statistical methods and interpretation |
-| **[Immune System](docs/immune_system.html)** | Tumor-immune interaction modeling |
+| **[Main Manuscript](docs/manuscript/manuscript.md)** | Full paper: *Extrachromosomal DNA as a Causal Instrument for Spatial Multi-Omics* |
+| **[Supplementary Materials](docs/manuscript/supplementary_materials.docx)** | Extended methods, additional figures, validation details |
+
+### Guides
+
+| Document | Description |
+|----------|-------------|
+| **[Tutorial: Causal Inference](docs/tutorial.md)** | Step-by-step guide to causal effect estimation with CAUSANTA |
+| **[Analysis Guide](docs/analysis_guide.md)** | Detailed statistical methods and interpretation |
+| **[Immune System](docs/immune_system.md)** | Tumor-immune interaction modeling |
+
+### Technical Reference
+
+| Document | Description |
+|----------|-------------|
+| **[Supplementary Methods](docs/supplementary_materials.md)** | Full methodological details (2SLS, bootstrap, power analysis) |
 | **[Parameters Reference](causanta/simulate/params/default.json)** | Full configuration options |
 
 ---
@@ -125,14 +191,22 @@ causanta/
 │   │   ├── behaviors.py      # Cell behaviors (division, migration, death)
 │   │   ├── environment.py    # Reaction-diffusion fields
 │   │   ├── ecdna.py          # ecDNA segregation and effects
+│   │   ├── sweep.py          # Parameter sweep system
 │   │   └── params/
 │   │       └── default.json  # Default parameters
 │   │
 │   ├── analyze/              # Causal inference tools
 │   │   ├── effects.py        # Causal effect estimation
-│   │   ├── iv.py             # Instrumental variable regression
-│   │   ├── regression.py     # OLS and 2SLS
+│   │   ├── iv.py             # Instrumental variable regression (2SLS, diagnostics)
+│   │   ├── bootstrap.py      # BCa bootstrap confidence intervals
+│   │   ├── power.py          # Statistical power analysis
+│   │   ├── heterogeneity.py  # Effect heterogeneity by region/hypoxia
+│   │   ├── loader.py         # Data loading utilities
 │   │   └── discovery.py      # Causal structure learning
+│   │
+│   ├── visualize/            # Publication figures
+│   │   ├── nature_style.py   # Nature Methods styling
+│   │   └── causal_figures.py # Main figure generation
 │   │
 │   └── graph/                # Causal DAG representation
 │       └── causal_dag.py     # DAG construction and visualization
@@ -140,15 +214,21 @@ causanta/
 ├── docs/                     # Documentation
 │   ├── tutorial.md           # Causal inference tutorial
 │   ├── analysis_guide.md     # Statistical methods guide
+│   ├── supplementary_materials.md  # Methods for publication
 │   ├── immune_system.md      # Immune modeling docs
-│   └── assets/
-│       └── style.css         # Documentation styling
+│   ├── assets/
+│   │   └── style.css         # Documentation styling
+│   └── manuscript/           # Publication manuscript
+│       ├── manuscript.md     # Main paper (Markdown)
+│       ├── figures/          # Publication figures
+│       └── assets/           # Manuscript styling
 │
-├── examples/                 # Example scripts
-│   └── analyze_simulation.py
+├── scripts/                  # Analysis scripts
+│   ├── run_comprehensive_analysis.py  # Full analysis pipeline
+│   └── run_simulation_study.py        # Validation study runner
 │
-└── scripts/                  # Utility scripts
-    └── run_enhanced_analysis.py
+└── examples/                 # Example scripts
+    └── analyze_simulation.py
 ```
 
 ---
@@ -254,12 +334,15 @@ CAUSANTA is a **causal inference benchmark prototype**, not a validated GBM tiss
 If you use CAUSANTA in your research, please cite:
 
 ```bibtex
-@software{causanta2024,
-  title = {CAUSANTA: Causal Analysis Using Somatic And Neighborhood Tissue Architecture},
+@article{craig2024ecdna,
+  title = {Extrachromosomal DNA as a Causal Instrument for Spatial Multi-Omics},
+  author = {Craig, David W. and Rodin, Andrei S.},
   year = {2024},
-  url = {https://github.com/yourusername/causanta}
+  institution = {City of Hope}
 }
 ```
+
+See the [full manuscript](docs/manuscript/manuscript.md) for details.
 
 ---
 

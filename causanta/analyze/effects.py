@@ -438,6 +438,169 @@ def analyze_ecDNA_segregation(lineage_data: list[dict]) -> dict[str, float]:
     }
 
 
+def estimate_effects_iv(
+    cells_data: list[dict],
+    ground_truth: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    """Estimate all causal effects using IV regression.
+
+    Uses ecDNA as instrument for EGFR expression effects on outcomes.
+
+    Args:
+        cells_data: Cell data from simulation
+        ground_truth: Optional dictionary with true effect values
+
+    Returns:
+        Dictionary with IV estimates for each outcome
+    """
+    from .iv import two_stage_least_squares
+
+    tumor_cells = [c for c in cells_data if c.get("cell_type") == 6]
+
+    if len(tumor_cells) < 50:
+        return {"error": "Insufficient tumor cells", "n_cells": len(tumor_cells)}
+
+    # Instrument and treatment
+    Z = np.array([c["ecDNA_count"] for c in tumor_cells], dtype=float)
+    D = np.array([c.get("egfr_expression", c["ecDNA_count"]) for c in tumor_cells], dtype=float)
+
+    # Covariates (to control for observed confounding)
+    O2 = np.array([c.get("O2_local", 20) for c in tumor_cells], dtype=float)
+    covariates = O2.reshape(-1, 1)
+
+    results = {
+        "n_cells": len(tumor_cells),
+        "instrument": "ecDNA_count",
+        "treatment": "egfr_expression",
+    }
+
+    # Outcome: VEGF secretion (beta)
+    if "VEGF_secretion" in tumor_cells[0]:
+        Y_vegf = np.array([c["VEGF_secretion"] for c in tumor_cells], dtype=float)
+        try:
+            first_coef, first_se, f_stat, iv_coef, iv_se, ols_coef = two_stage_least_squares(
+                Z, D, Y_vegf, covariates
+            )
+            results["VEGF_effect"] = {
+                "iv_estimate": iv_coef,
+                "iv_se": iv_se,
+                "ols_estimate": ols_coef,
+                "first_stage_coef": first_coef,
+                "f_statistic": f_stat,
+                "ground_truth": ground_truth.get("beta", None) if ground_truth else None,
+            }
+        except Exception as e:
+            results["VEGF_effect"] = {"error": str(e)}
+
+    # Outcome: migration rate (delta)
+    if "migration_rate" in tumor_cells[0]:
+        Y_mig = np.array([c["migration_rate"] for c in tumor_cells], dtype=float)
+        try:
+            first_coef, first_se, f_stat, iv_coef, iv_se, ols_coef = two_stage_least_squares(
+                Z, D, Y_mig, covariates
+            )
+            results["migration_effect"] = {
+                "iv_estimate": iv_coef,
+                "iv_se": iv_se,
+                "ols_estimate": ols_coef,
+                "first_stage_coef": first_coef,
+                "f_statistic": f_stat,
+                "ground_truth": ground_truth.get("delta", None) if ground_truth else None,
+            }
+        except Exception as e:
+            results["migration_effect"] = {"error": str(e)}
+
+    return results
+
+
+def compare_iv_ols_performance(
+    cells_data: list[dict],
+    ground_truth: dict[str, float],
+    n_bootstrap: int = 100,
+) -> dict[str, Any]:
+    """Compare IV vs OLS estimation performance.
+
+    Runs bootstrap analysis to compare bias and variance of
+    IV vs OLS estimators.
+
+    Args:
+        cells_data: Cell data from simulation
+        ground_truth: True causal effects
+        n_bootstrap: Number of bootstrap samples
+
+    Returns:
+        Comparison results
+    """
+    from .iv import two_stage_least_squares
+
+    tumor_cells = [c for c in cells_data if c.get("cell_type") == 6]
+    n = len(tumor_cells)
+
+    if n < 100:
+        return {"error": "Insufficient cells for bootstrap"}
+
+    Z = np.array([c["ecDNA_count"] for c in tumor_cells], dtype=float)
+    D = np.array([c.get("egfr_expression", c["ecDNA_count"]) for c in tumor_cells], dtype=float)
+    Y = np.array([c.get("VEGF_secretion", 0) for c in tumor_cells], dtype=float)
+    O2 = np.array([c.get("O2_local", 20) for c in tumor_cells], dtype=float)
+    covariates = O2.reshape(-1, 1)
+
+    iv_estimates = []
+    ols_estimates = []
+
+    rng = np.random.default_rng(42)
+
+    for _ in range(n_bootstrap):
+        idx = rng.choice(n, size=n, replace=True)
+        Z_b = Z[idx]
+        D_b = D[idx]
+        Y_b = Y[idx]
+        cov_b = covariates[idx]
+
+        try:
+            _, _, _, iv_coef, _, ols_coef = two_stage_least_squares(Z_b, D_b, Y_b, cov_b)
+            iv_estimates.append(iv_coef)
+            ols_estimates.append(ols_coef)
+        except Exception:
+            continue
+
+    if len(iv_estimates) < 10:
+        return {"error": "Bootstrap failed"}
+
+    true_effect = ground_truth.get("beta", 0.1)
+
+    iv_arr = np.array(iv_estimates)
+    ols_arr = np.array(ols_estimates)
+
+    return {
+        "true_effect": true_effect,
+        "iv": {
+            "mean": float(np.mean(iv_arr)),
+            "std": float(np.std(iv_arr)),
+            "bias": float(np.mean(iv_arr) - true_effect),
+            "rmse": float(np.sqrt(np.mean((iv_arr - true_effect) ** 2))),
+            "ci_lower": float(np.percentile(iv_arr, 2.5)),
+            "ci_upper": float(np.percentile(iv_arr, 97.5)),
+            "coverage": float(np.mean((iv_arr - 1.96 * np.std(iv_arr) <= true_effect) &
+                                      (true_effect <= iv_arr + 1.96 * np.std(iv_arr)))),
+        },
+        "ols": {
+            "mean": float(np.mean(ols_arr)),
+            "std": float(np.std(ols_arr)),
+            "bias": float(np.mean(ols_arr) - true_effect),
+            "rmse": float(np.sqrt(np.mean((ols_arr - true_effect) ** 2))),
+            "ci_lower": float(np.percentile(ols_arr, 2.5)),
+            "ci_upper": float(np.percentile(ols_arr, 97.5)),
+        },
+        "iv_advantage": {
+            "bias_reduction": float(abs(np.mean(ols_arr) - true_effect) - abs(np.mean(iv_arr) - true_effect)),
+            "rmse_reduction": float(np.sqrt(np.mean((ols_arr - true_effect) ** 2)) -
+                                    np.sqrt(np.mean((iv_arr - true_effect) ** 2))),
+        },
+        "n_bootstrap": len(iv_estimates),
+    }
+
+
 def run_causal_analysis(
     output_dir: Path,
     config_params: dict[str, float],
