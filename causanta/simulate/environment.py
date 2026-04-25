@@ -316,19 +316,11 @@ def accumulate_sources_and_sinks(
         # Glucose consumption
         glucose_sink[gj, gi] += tp.glucose_consumption_amol_hr / voxel_area
 
-        # VEGF secretion: basal + hypoxia-enhanced
-        # Tumor cells secrete some VEGF even under normoxia (EGFR effect)
-        # Hypoxia further upregulates via HIF-1α pathway
+        # VEGF secretion: cell.VEGF_secretion now already includes the
+        # hypoxia gating (0.2x normoxic, 1.0x hypoxic) from
+        # modulate_vegf_secretion in ecdna.py. Just pass through.
         if cell.VEGF_secretion > 0:
-            # Basal fraction under normoxia, full rate under hypoxia
-            basal_fraction = 0.2  # 20% of max rate when normoxic
-            if cell.O2_local < hypoxia_thresh:
-                # Hypoxic: full VEGF secretion (HIF-1α activated)
-                effective_rate = cell.VEGF_secretion
-            else:
-                # Normoxic: basal VEGF (EGFR-driven, no HIF-1α)
-                effective_rate = cell.VEGF_secretion * basal_fraction
-            VEGF_source[gj, gi] += effective_rate / voxel_area
+            VEGF_source[gj, gi] += cell.VEGF_secretion / voxel_area
 
         # Lactate production
         if tp.lactate_production_amol_hr > 0:

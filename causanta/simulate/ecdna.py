@@ -25,51 +25,72 @@ import numpy as np
 MAX_ECDNA_COPIES = 100
 
 # EGFR expression parameters
-EGFR_BASE_EXPRESSION = 1.0  # Normal cells have baseline EGFR expression
-EGFR_PER_ECDNA_COPY = 0.5   # Each ecDNA copy adds this much expression
-EGFR_NOISE_CV = 0.1         # Coefficient of variation for transcriptional noise
+EGFR_BASE_EXPRESSION = 1.0   # Normal cells have baseline EGFR expression
+EGFR_PER_ECDNA_COPY = 0.5    # Each ecDNA copy adds this much expression (gene dosage)
+EGFR_NOISE_CV = 0.1          # Coefficient of variation for transcriptional noise
+
+# HIF-1alpha-driven EGFR upregulation under hypoxia. HIF binds the EGFR
+# promoter and increases transcription. Reference: Franovic et al. 2007,
+# Peng et al. 2006. This creates the confounder->exposure edge (M -> X)
+# required for X to be endogenous w.r.t. hypoxia, which is what the SIV
+# framework is designed to correct for. Without this term, corr(EGFR, M)=0
+# by construction and IV has no OLS bias to correct.
+EGFR_HYPOXIA_UPREGULATION = 0.5  # fractional boost under hypoxia (1+value)x mRNA
 
 
 def compute_egfr_expression(
     ecDNA_count: int,
+    is_hypoxic: bool = False,
     rng: np.random.Generator | None = None,
     include_noise: bool = True,
 ) -> float:
-    """Compute EGFR expression level from ecDNA copy number.
+    """Compute EGFR expression level from ecDNA copy number and hypoxia.
 
     The causal chain is:
-        ecDNA_count → EGFR_mRNA → EGFR_protein (expression)
+        ecDNA_count (Z)  -> EGFR_mRNA -> EGFR_protein (X)
+        hypoxia     (M)  -> HIF-1alpha -> EGFR_mRNA  (additional endogenous driver)
 
-    This function models gene dosage effects: more ecDNA copies carrying
-    EGFR → more EGFR transcription → higher EGFR protein levels.
+    Gene dosage models additional EGFR transcripts from amplified copies on
+    ecDNA; HIF-1alpha models hypoxia-induced upregulation of the chromosomal
+    EGFR promoter. Both act on the mRNA pool; protein level is proportional.
 
     Formula:
-        EGFR = base + (copies_per_ecDNA * ecDNA_count) * noise
+        EGFR = [base + kappa * ecDNA_count] * [1 + kappa_hyp * is_hypoxic] * noise
 
-    Where noise ~ LogNormal(0, CV) to model transcriptional stochasticity.
+    Where noise ~ LogNormal(0, CV) captures transcriptional stochasticity.
+
+    The hypoxia term is what makes EGFR endogenous w.r.t. the hypoxia
+    confounder M. Without it, corr(EGFR, is_hypoxic) = 0 and IV has no
+    omitted-variable bias to correct -- because the 'confounder' doesn't
+    co-vary with the exposure.
 
     Args:
         ecDNA_count: Number of ecDNA copies carrying EGFR
+        is_hypoxic: Whether the cell is in a hypoxic microenvironment
         rng: Random number generator for noise (None = no noise)
         include_noise: Whether to add transcriptional noise
 
     Returns:
         EGFR expression level (arbitrary units, ~1.0 for normal cells)
 
-    Example:
-        ecDNA=0:  EGFR ≈ 1.0 (baseline)
-        ecDNA=10: EGFR ≈ 1.0 + 0.5*10 = 6.0 (6x overexpression)
-        ecDNA=20: EGFR ≈ 1.0 + 0.5*20 = 11.0 (11x overexpression)
-        ecDNA=50: EGFR ≈ 1.0 + 0.5*50 = 26.0 (26x overexpression)
+    Example (at ecDNA=20, kappa_hyp=0.5):
+        normoxic:  EGFR ~ 1 + 0.5*20 = 11.0
+        hypoxic:   EGFR ~ (1 + 0.5*20) * 1.5 = 16.5
 
     References:
         Hung et al. (2021) Nature: ecDNA forms transcriptional hubs
+        Franovic et al. (2007) PNAS: HIF-2alpha regulates EGFR translation
+        Peng et al. (2006) Mol Cell Biol: HIF-1alpha induces EGFR transcription
     """
     # Cap ecDNA count
     capped_count = min(ecDNA_count, MAX_ECDNA_COPIES)
 
-    # Gene dosage: more copies → more expression
+    # Gene dosage: more copies → more mRNA
     mean_expression = EGFR_BASE_EXPRESSION + EGFR_PER_ECDNA_COPY * capped_count
+
+    # HIF-1alpha-driven upregulation under hypoxia
+    if is_hypoxic:
+        mean_expression *= (1.0 + EGFR_HYPOXIA_UPREGULATION)
 
     # Add transcriptional noise if requested
     if include_noise and rng is not None and EGFR_NOISE_CV > 0:
@@ -187,39 +208,50 @@ def modulate_division_time(
     return base_time_hr / (1.0 + alpha * np.log2(1.0 + egfr_expression))
 
 
+VEGF_NORMOXIC_BASAL_FRACTION = 0.2  # Normoxic cells secrete this fraction of their max rate
+
+
 def modulate_vegf_secretion(
     base_rate: float,
     egfr_expression: float,
     beta: float,
+    is_hypoxic: bool = False,
 ) -> float:
-    """EGFR expression increases VEGF secretion capacity.
+    """EGFR expression and hypoxia jointly drive VEGF secretion.
 
     Causal pathway:
-        ecDNA → EGFR_expression → HIF-1α stabilization → VEGF transcription
+        ecDNA (Z)  -> EGFR (X) -> VEGF transcription
+        hypoxia(M) -> HIF-1alpha -> VEGF transcription (5-fold upregulation)
 
-    EGFR signaling can enhance HIF-1α stability and VEGF transcription,
-    promoting angiogenesis. Effect has diminishing returns (sqrt).
+    EGFR effect is sqrt-saturating (receptor saturation). Hypoxia acts as
+    a multiplicative switch: under normoxia cells secrete at a basal fraction
+    (0.2x) of their EGFR-driven rate; HIF-1alpha fully activates secretion
+    under hypoxia. Net: hypoxic cells secrete 5x more VEGF than normoxic
+    at the same EGFR level.
 
-    Formula:
-        S_eff = S_base * (1 + beta * sqrt(EGFR_expression))
+    This matches the paper's structural equation:
+        S_eff = S_base * (1 + beta * sqrt(X)) * (0.2 + 0.8 * M)
 
-    With beta=0.1 and base=600:
-        - EGFR=1 (normal): S_eff = 600 * 1.1 = 660
-        - EGFR=6 (10 ecDNA): S_eff = 600 * 1.24 = 747
-        - EGFR=11 (20 ecDNA): S_eff = 600 * 1.33 = 798
-        - EGFR=26 (50 ecDNA): S_eff = 600 * 1.51 = 906
+    Note: This function now returns the hypoxia-gated rate. Previously the
+    gating was applied later in environment.py; it now lives here so that
+    stored cell.VEGF_secretion reflects the actual secretion rate, which
+    matters for IV/OLS analysis downstream.
 
     Args:
-        base_rate: Base VEGF secretion rate
+        base_rate: Base VEGF secretion rate (amol/hr)
         egfr_expression: EGFR expression level
-        beta: Effect size parameter
+        beta: EGFR effect size parameter
+        is_hypoxic: Whether the cell is in a hypoxic microenvironment
 
     Returns:
         Effective VEGF secretion rate (amol/hr)
     """
     if egfr_expression <= 0:
-        return base_rate
-    return base_rate * (1.0 + beta * np.sqrt(egfr_expression))
+        egfr_factor = 1.0
+    else:
+        egfr_factor = 1.0 + beta * np.sqrt(egfr_expression)
+    hypoxia_factor = 1.0 if is_hypoxic else VEGF_NORMOXIC_BASAL_FRACTION
+    return base_rate * egfr_factor * hypoxia_factor
 
 
 def modulate_migration_speed(

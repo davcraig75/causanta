@@ -107,10 +107,13 @@ def update_effective_rates(
     - Migration increased by EGFR expression AND hypoxia
     - VEGF secretion increased by EGFR expression
     """
-    # Step 1: Compute EGFR expression from ecDNA count
-    # This is the causal link: more ecDNA copies → more EGFR mRNA → more protein
+    # Step 1: Compute EGFR expression from ecDNA count + hypoxia
+    # Causal links:
+    #   ecDNA_count (Z) -> EGFR_mRNA  (gene dosage, exogenous)
+    #   is_hypoxic  (M) -> EGFR_mRNA  (HIF-1alpha, endogenous component)
     cell.egfr_expression = compute_egfr_expression(
         cell.ecDNA_count,
+        is_hypoxic=cell.is_hypoxic,
         rng=rng,
         include_noise=True,  # Transcriptional stochasticity
     )
@@ -125,11 +128,15 @@ def update_effective_rates(
         hypoxia_invasion_boost=2.0,
     )
 
-    # VEGF secretion: EGFR effect (actual secretion gated by hypoxia in environment.py)
+    # VEGF secretion: EGFR effect (sqrt-saturating) x HIF-1alpha hypoxia
+    # upregulation (5x hypoxic vs normoxic). Gating now happens in
+    # modulate_vegf_secretion rather than in environment.py, so the stored
+    # value is the actual rate (relevant for IV/OLS analysis of VEGF).
     cell.VEGF_secretion = modulate_vegf_secretion(
         tp.VEGF_secretion_amol_hr,
-        cell.egfr_expression,  # Use EGFR, not ecDNA directly
+        cell.egfr_expression,
         tp.ecDNA_effect_on_VEGF,
+        is_hypoxic=cell.is_hypoxic,
     )
 
 
