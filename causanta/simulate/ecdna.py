@@ -24,9 +24,9 @@ import numpy as np
 # are associated with genomic instability and reduced fitness)
 MAX_ECDNA_COPIES = 100
 
-# EGFR expression parameters
-EGFR_BASE_EXPRESSION = 1.0   # Normal cells have baseline EGFR expression
-EGFR_PER_ECDNA_COPY = 0.5    # Each ecDNA copy adds this much expression (gene dosage)
+# EGFR expression parameters (calibrated to match first-stage regression)
+EGFR_BASE_EXPRESSION = 2.89   # Baseline EGFR expression (includes hypoxia effects in population)
+EGFR_PER_ECDNA_COPY = 1.21    # Each ecDNA copy adds this much expression (gene dosage, κ)
 EGFR_NOISE_CV = 0.1          # Coefficient of variation for transcriptional noise
 
 # HIF-1alpha-driven EGFR upregulation under hypoxia. HIF binds the EGFR

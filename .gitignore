@@ -40,8 +40,6 @@ ENV/
 Thumbs.db
 
 # Simulation outputs (large files)
-output/
-results/
 *.log
 
 # Numba cache

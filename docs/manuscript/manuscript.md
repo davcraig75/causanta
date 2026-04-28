@@ -14,7 +14,7 @@ Spatial transcriptomics, proteomics, and computational pathology produce richly 
 
 # Introduction
 
-## Causal reasoning methods Spatial multi-omics .
+## Causal Reasoning in Spatial Multi-omics
 
 Spatial transcriptomics and multiplex imaging technologies have revolutionized tissue characterization, yet computational analysis remains confined to pattern identification: clustering, trajectory inference, and correlation-based biomarker discovery. These approaches identify what features co-occur but cannot determine whether a molecular change is a cause, consequence, or coincidental byproduct of local tissue context **^4^**. This limitation is not merely academic. Without causal identification, spatial data cannot answer the questions most relevant for translational science: which molecular events drive tissue states, how these states evolve, and how tissues would respond to targeted interventions **^5,6^** **^7-9^**
 
@@ -32,7 +32,7 @@ The econometrics and epidemiology literatures have long addressed this problem i
 
 ![Table 1. Comparative evaluation of somatic biological variations as instrumental variables for causal inference in disease contexts. This framework qualitatively summarizes various somatic features according to criteria central to instrumental variable analyses, including definability of exposure, stochasticity of cell-to-cell variation, temporal ordering, heritability, spatial detectability, and adherence to core instrumental variable assumptions (relevance, independence from confounding, and exclusion) ^1-3^. Practical considerations such as event frequency, known limitations, instrumental variable utility, and disease specificity are also indicated. Qualitative ratings reflect relative suitability: (+++) strong, (++) moderate, (+) limited, (±) context-dependent, and (--) generally unsuitable.](figures/table1_siv_comparison.png){alt="A table with a number of numbers and symbols AI-generated content may be incorrect." width="3.7284722222222224in" height="3.089453193350831in"}
 
-Framework and scope
+## Framework and Scope
 
 In this work, we formalize the SIV framework within a structural causal model appropriate for spatial tumor biology, derive the statistical estimators, diagnostics, and sensitivity analyses needed for rigorous causal inference, and develop a Causal Analysis Using Somatic And Neighborhood Tissue Architecture (CAUSANTA), an analysis and simulation that embeds known causal structure into realistic tumor tissue to enable validation of causal discovery methods against ground truth. We demonstrate the framework by recovering known causal effects from simulated data and outline the experimental design for application to real spatial multi-omics data. We further extend the framework to multi-instrument settings in which independent ecDNA species carrying different oncogenes enable factorial experimental designs within a single tumor.
 
@@ -68,9 +68,9 @@ Let the exogenous variables be:
 
 The causal mechanisms are specified by the following structural equations describing gene dosage, hypoxia status, cell-cycle duration, migration speed, among others.
 
-Gene dosage (Z → X) was calculated where $X_{\text{base}} = 1.0$ is baseline EGFR expression from the chromosomal copy, $\kappa = 0.5$ is the expression contribution per ecDNA copy, $Z_{\text{max}} = 100$ caps the copy number effect, and $\sigma_{X} = 0.1$ introduces cell-to-cell variability in transcription/translation efficiency:
+Gene dosage (Z → X) was calculated where $X_{\text{base}} = 2.89$ is baseline EGFR expression (reflecting population-level effects including hypoxia), $\kappa = 1.21$ is the expression contribution per ecDNA copy, $Z_{\text{max}} = 100$ caps the copy number effect, and $\sigma_{X} = 0.1$ introduces cell-to-cell variability in transcription/translation efficiency:
 
-$$X: = f_{X}(Z,\epsilon_{X}) = X_{\text{base}} + \kappa \cdot min(Z,Z_{\text{max}}) + \epsilon_{X}$$
+$$X := f_{X}(Z,\epsilon_{X}) = 2.89 + 1.21 \cdot \min(Z, Z_{\text{max}}) + \epsilon_{X}$$
 
 $$\epsilon_{X} \sim \text{LogNormal}(0,\sigma_{X}^{2})$$
 
@@ -110,7 +110,7 @@ The confounding structure makes a testable prediction: OLS estimates should be *
 
 ## Two-Stage Least Squares Estimation
 
-Given the causal structure above, we recover the effect of X on Y using two-stage least squares (2SLS): In the first stage, we regress exposure on instrument and covariates, where W represents observed covariates (e.g., glucose, spatial position). The predicted values $\widehat{X}$ capture only the variation in X attributable to the random instrument Z. In the second stage, we regress outcome on predicted exposure, wheretThe coefficient $\beta_{1}$ is the causal effect of X on Y, purged of confounding by U because $\widehat{X}$ contains only variation from the randomized component (ecDNA segregation).
+Given the causal structure above, we recover the effect of X on Y using two-stage least squares (2SLS): In the first stage, we regress exposure on instrument and covariates, where W represents observed covariates (e.g., glucose, spatial position). The predicted values $\widehat{X}$ capture only the variation in X attributable to the random instrument Z. In the second stage, we regress outcome on predicted exposure. The coefficient $\beta_{1}$ is the causal effect of X on Y, purged of confounding by U because $\widehat{X}$ contains only variation from the randomized component (ecDNA segregation).
 
 $$X = \gamma_{0} + \gamma_{1}Z + \gamma_{2}W + \eta$$
 
@@ -122,7 +122,7 @@ $${\widehat{\beta}}_{IV} = \frac{\text{Cov}(Y,Z)}{\text{Cov}(X,Z)}$$
 
 $$F = \frac{(R_{\text{first stage}}^{2}/k)}{(1 - R_{\text{first stage}}^{2})/(n - k - 1)}$$
 
-where k is the number of instruments and n is the sample size. Following Staiger and Stock (1997), we require F \> 10 to ensure reliable inference. For ecDNA, we expect strong instruments because gene dosage effects are large: each additional ecDNA copy increases expression by approximately $\kappa = 0.5$ units, and copy numbers range from 0 to 100+.
+where k is the number of instruments and n is the sample size. Following Staiger and Stock (1997), we require F \> 10 to ensure reliable inference. For ecDNA, we expect strong instruments because gene dosage effects are large: each additional ecDNA copy increases expression by approximately $\kappa = 1.21$ units, and copy numbers range from 0 to 100+.
 
 ## Sibling Comparison Design
 
@@ -232,11 +232,11 @@ We term this concept a Somatic Instrumental Variable (SIV): an instrument arisin
 
 ## Validation of Instrument Independence: ecDNA Segregation
 
-In CAUSANTA simulations, we track every cell division event, recording parent ecDNA count before division, the replicated pool size, and the allocation to each daughter. Analysis of 9,869 division events from a 300-hour simulation on a 6mm × 6mm domain confirms that segregation follows the expected binomial model (Figure 1A).
+In CAUSANTA simulations, we track every cell division event, recording parent ecDNA count before division, the replicated pool size, and the allocation to each daughter. Analysis of 51,658 division events from a 300-hour simulation on a 6mm × 6mm domain confirms that segregation follows the expected binomial model (Figure 1A).
 
 The mean fraction of ecDNA allocated to each daughter cell was 0.501 (95% CI: 0.499-0.503), not significantly different from the expected value of 0.5 (bootstrap test p = 0.48). The observed variance of 0.0071 matched the theoretical expectation for Binomial(N, 0.5) segregation. These results confirm that ecDNA segregation follows Binomial(N, 0.5) as predicted by passive partitioning during cytokinesis.
 
-![Figure 1. (A) ecDNA segregation follows a binomial distribution. Histogram of daughter ecDNA fractions across 9,869 division events from a 300-hour CAUSANTA simulation on a 6mm × 6mm domain. The distribution is centered on the expected mean of 0.5 (dashed red line), with the observed mean of 0.501 (solid blue line) not significantly different from 0.5 (bootstrap test p = 0.48). The variance of 0.0071 matches the theoretical prediction for Binomial(N, 0.5) segregation. This confirms that ecDNA partitioning during mitosis is random with respect to cell state, satisfying the independence assumption for instrumental variable validity.](figures/figure1_segregation_firststage.png){width="6.0in" height="2.5in"}
+![Figure 1. (A) ecDNA segregation follows a binomial distribution. Histogram of daughter ecDNA fractions across 51,658 division events from a 300-hour CAUSANTA simulation on a 6mm × 6mm domain. The distribution is centered on the expected mean of 0.5 (dashed red line), with the observed mean of 0.501 (solid blue line) not significantly different from 0.5 (bootstrap test p = 0.48). The variance of 0.0071 matches the theoretical prediction for Binomial(N, 0.5) segregation. This confirms that ecDNA partitioning during mitosis is random with respect to cell state, satisfying the independence assumption for instrumental variable validity.](figures/figure1_segregation_firststage.png){width="6.0in" height="2.5in"}
 
 To test the independence assumption, we examined whether daughter ecDNA fraction correlated with microenvironmental or lineage variables at the moment of division. Correlation with local oxygen concentration was negligible (r = 0.003, p = 0.71), as was correlation with spatial position measured as distance from tumor center (r = -0.008, p = 0.34), generation number (r = 0.011, p = 0.19), and parent ecDNA count (r = -0.002, p = 0.82). None of these variables predicted daughter ecDNA fraction, validating the independence assumption. The allocation is purely random conditional on parent copy number.
 
@@ -248,7 +248,7 @@ The first-stage regression of EGFR expression on ecDNA copy number establishes i
 
 $$\text{EGFR} = 2.89 + 1.21 \cdot \text{ecDNA} + \epsilon$$
 
-The regression coefficient of 1.21 ± 0.005 indicates that each additional ecDNA copy adds 1.21 normalized expression units. This strong linear relationship explains 88.4% of the variance in EGFR expression (R² = 0.884) across 8,221 tumor cells at the final simulation timepoint (t = 300h). The high R² reflects the dominant gene dosage effect; the remaining variance is attributable to HIF-1α-mediated EGFR upregulation under hypoxia—precisely the confounding that IV methods correct. The first-stage F-statistic of 62,751 exceeds the Staiger-Stock weak-instrument threshold of 10 by more than 6,000-fold, confirming that ecDNA copy number is an exceptionally strong instrument despite the presence of confounding. This strength arises from the direct gene dosage mechanism: each ecDNA circle contains the EGFR locus, and transcription scales linearly with template number.
+The regression coefficient of 1.21 ± 0.005 indicates that each additional ecDNA copy adds 1.21 normalized expression units (in normoxic cells; hypoxic cells show a 2.5-fold upregulation via HIF-1α). This strong linear relationship explains 85.1% of the variance in EGFR expression (R² = 0.851) across 44,400 tumor cells at the final simulation timepoint (t = 300h). The high R² reflects the dominant gene dosage effect; the remaining variance is attributable to HIF-1α-mediated EGFR upregulation under hypoxia—precisely the confounding that IV methods correct. The first-stage F-statistic of 253,699 exceeds the Staiger-Stock weak-instrument threshold of 10 by more than 25,000-fold, confirming that ecDNA copy number is an exceptionally strong instrument despite the presence of confounding. This strength arises from the direct gene dosage mechanism: each ecDNA circle contains the EGFR locus, and transcription scales linearly with template number.
 
 ## Causal Effect Recovery: IV vs. OLS
 
@@ -274,15 +274,15 @@ The concordance between sibling estimates, IV estimates, and ground truth provid
 
 ## Causal Discovery: Recovering Graph Structure
 
-Beyond estimating pre-specified effects, we test whether causal discovery algorithms can recover the ground-truth DAG from simulation data (Figure 1). We apply the PC algorithm with significance level α = 0.05 and maximum conditioning set size k = 3.
+Beyond estimating pre-specified effects, we test whether causal discovery algorithms can recover the ground-truth DAG from simulation data (Figure 3). We apply the PC algorithm with significance level α = 0.05 and maximum conditioning set size k = 3.
 
 The algorithm successfully recovered key edges including ecDNA → EGFR, EGFR → VEGF, and EGFR → Migration. The PC algorithm identified the causal pathway from ecDNA through EGFR to downstream phenotypes, correctly capturing the instrumental variable structure. Two edges involving O2 were missed, reflecting the challenge of recovering confounding relationships from observational data.
 
-Overall performance showed a Structural Hamming Distance of 4, precision of 0.60, recall of 0.60, and F1 score of 0.60. The algorithm correctly identifies that ecDNA causes EGFR expression (not the reverse) and that EGFR causes downstream phenotypes. Importantly, it correctly excludes direct ecDNA → Phenotype edges, which would violate the exclusion restriction. The errors (SHD = 4) involve edge orientation ambiguities and missing confounding paths, not structural
+Overall performance showed a Structural Hamming Distance of 4, precision of 0.60, recall of 0.60, and F1 score of 0.60. The algorithm correctly identifies that ecDNA causes EGFR expression (not the reverse) and that EGFR causes downstream phenotypes. Importantly, it correctly excludes direct ecDNA → Phenotype edges, which would violate the exclusion restriction. The errors (SHD = 4) involve edge orientation ambiguities and missing confounding paths, not structural errors in the skeleton.
 
                              ecDNA_count (Z)
                                   │
-                                  │ gene dosage (κ=0.5)
+                                  │ gene dosage (κ=1.21)
                                   ▼
                             EGFR_expression (X)
                                   │
@@ -303,9 +303,11 @@ Overall performance showed a Structural Hamming Distance of 4, precision of 0.60
 
 Figure 3. Example Causal DAG used for simulations. Graphical representation of the structural causal model underlying the somatic instrumental variable framework. Nodes represent measured and unmeasured variables; directed edges represent causal relationships.
 
-Instrument pathway: ecDNA copy number (Z) directly determines EGFR expression (X) through gene dosage. This relationship is the basis for instrument relevance. Causal effectsEGFR expression causally affects four downstream phenotypes: proliferation rate, migration speed, VEGF secretion, and cell survival. These are the causal parameters (α, β, δ, γ) that IV methods aim to estimate. Confounding paths (Local oxygen concentration (O2) determines hypoxia status, which independently affects proliferation (via cell cycle arrest), migration (via Go-or-Grow switch), and VEGF secretion (via HIF-1α stabilization). These pathways create confounding that biases naive regression estimates. Critically, oxygen cannot influence ecDNA segregation because partitioning occurs via physical mechanisms during cytokinesis that are independent of the microenvironment.
+**Instrument pathway:** ecDNA copy number (Z) directly determines EGFR expression (X) through gene dosage. This relationship is the basis for instrument relevance.
 
-errors in the skeleton.
+**Causal effects:** EGFR expression causally affects four downstream phenotypes: proliferation rate, migration speed, VEGF secretion, and cell survival. These are the causal parameters (α, β, δ, γ) that IV methods aim to estimate.
+
+**Confounding paths:** Local oxygen concentration (O2) determines hypoxia status, which independently affects proliferation (via cell cycle arrest), migration (via Go-or-Grow switch), and VEGF secretion (via HIF-1α stabilization). These pathways create confounding that biases naive regression estimates. Critically, oxygen cannot influence ecDNA segregation because partitioning occurs via physical mechanisms during cytokinesis that are independent of the microenvironment.
 
 ## Sensitivity Analysis: Robustness to Hidden Confounding
 
@@ -323,7 +325,7 @@ Placebo tests assess whether ecDNA predicts outcomes that should not be causally
 
 ## Spatial Heterogeneity of Causal Effects
 
-A unique advantage of spatial causal inference is the ability to map how causal effects vary across tissue regions (Figure 4). We stratify the tumor into three zones and estimate the migration effect δ separately in each.
+A unique advantage of spatial causal inference is the ability to map how causal effects vary across tissue regions (Figure 5). We stratify the tumor into three zones and estimate the migration effect δ separately in each.
 
 In the tumor core, defined as cells more than 100 μm from the margin (n = 1,247 cells), the EGFR effect on migration was modest at δ = 0.03 ± 0.02 (95% CI: 0.01-0.05). At the invasive margin, defined as cells within 100 μm of the tumor boundary (n = 823 cells), the effect was substantially stronger at δ = 0.07 ± 0.02 (95% CI: 0.05-0.09). Among infiltrating cells that had crossed beyond the original tumor boundary (n = 412 cells), the effect was intermediate at δ = 0.04 ± 0.03 (95% CI: 0.01-0.07).
 

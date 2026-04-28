@@ -1,0 +1,48 @@
+======================================================================
+CAUSANTA Comprehensive Analysis Summary
+======================================================================
+
+ecDNA SEGREGATION:
+  Divisions analyzed: 51658
+  Mean daughter fraction: 0.500 (expected: 0.5)
+  Variance: 0.0071
+
+FIRST-STAGE REGRESSION (ecDNA → EGFR):
+  F-statistic: 253698.7 (STRONG)
+  R²: 0.851
+  Coefficient: 2.915 (SE: 0.006)
+
+IV ESTIMATES:
+  VEGF_secretion:
+    IV:  3.4624 (SE: 0.0164)
+    OLS: 4.1575
+    Bias ratio (OLS/IV): 1.20
+  migration_rate:
+    IV:  0.9946 (SE: 0.0006)
+    OLS: 1.0242
+    Bias ratio (OLS/IV): 1.03
+
+GROUND TRUTH COMPARISON:
+  beta:
+    True: 0.1000
+    IV:   3.4624 (bias: 3362.4%)
+    OLS:  4.1575 (bias: 4057.5%)
+    Within 2SE: No
+  delta:
+    True: 0.0500
+    IV:   0.9946 (bias: 1889.2%)
+    OLS:  1.0242 (bias: 1948.3%)
+    Within 2SE: No
+
+SENSITIVITY ANALYSIS:
+  rosenbaum_VEGF_secretion: Γ* = 50.00
+  rosenbaum_migration_rate: Γ* = 50.00
+  e_value_migration: Γ* = 4.84
+  omitted_variable_bias: Γ* = 0.30
+
+POWER ANALYSIS:
+  First-stage R²: 0.851
+  Current power (δ=0.05): 5.02%
+  Required N for 80% power: 100000
+
+======================================================================

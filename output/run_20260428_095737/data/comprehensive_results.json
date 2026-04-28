@@ -1,0 +1,915 @@
+{
+  "segregation": {
+    "basic_stats": {
+      "n_divisions": 51658,
+      "mean_parent_before": 24.635852168008537,
+      "mean_daughter_fraction": 0.4995221437671456,
+      "expected_fraction": 0.5,
+      "segregation_variance": 0.007108763212364782,
+      "expected_variance": 0.005213126824265692,
+      "mean_replicated_pool": 47.955863808322825,
+      "notes": "Fractions computed relative to post-replication pool (parent_after + daughter)"
+    },
+    "bootstrap_test": {
+      "mean": 0.4995221437671456,
+      "mean_ci_lower": 0.4987952479833615,
+      "mean_ci_upper": 0.5002388787771656,
+      "expected_mean": 0.5,
+      "p_value_mean": 0.199,
+      "variance": 0.007108763212364782,
+      "n_observations": 51545,
+      "ci_level": 0.95,
+      "contains_null": "True",
+      "interpretation": "Segregation consistent with Binomial(N, 0.5)"
+    },
+    "n_divisions": 51658
+  },
+  "first_stage": {
+    "intercept": 8.141962952683617,
+    "coefficient": 2.914752820643207,
+    "se": 0.00578685483081622,
+    "r_squared": 0.8510617659473368,
+    "f_statistic": 253698.72635369963,
+    "n_observations": 44400,
+    "weak_instrument": "False",
+    "interpretation": "Each ecDNA copy adds 2.915 units of EGFR expression. F-statistic = 253698.7 (strong instrument)"
+  },
+  "iv_analysis": {
+    "iv_estimates": [
+      {
+        "outcome": "VEGF_secretion",
+        "treatment": "egfr_expression",
+        "instrument": "ecDNA_count",
+        "first_stage_coef": 2.9778438646018284,
+        "first_stage_se": 0.005154404122710591,
+        "first_stage_f_stat": 341610.05211061763,
+        "second_stage_coef": 3.4623823906576803,
+        "second_stage_se": 0.01636556468314621,
+        "ols_coef": 4.157456826112568,
+        "ols_se": 0.015016873033236336,
+        "n_observations": 44400,
+        "weak_instrument": "False",
+        "bias_ratio": 1.2007503380707925
+      },
+      {
+        "outcome": "migration_rate",
+        "treatment": "egfr_expression",
+        "instrument": "ecDNA_count",
+        "first_stage_coef": 2.9778438646018284,
+        "first_stage_se": 0.005154404122710591,
+        "first_stage_f_stat": 341610.05211061763,
+        "second_stage_coef": 0.9946105441888238,
+        "second_stage_se": 0.0006155838490661262,
+        "ols_coef": 1.0241737209042514,
+        "ols_se": 0.0005610437831698114,
+        "n_observations": 44400,
+        "weak_instrument": "False",
+        "bias_ratio": 1.0297233695019175
+      }
+    ],
+    "segregation_iv": {
+      "outcome": "generation",
+      "treatment": "parent_ecDNA",
+      "instrument": "daughter_ecDNA",
+      "first_stage_coef": 0.9359667693888216,
+      "first_stage_se": 0.0013423644750819492,
+      "first_stage_f_stat": 486160.8235630626,
+      "second_stage_coef": 0.08092468877098026,
+      "second_stage_se": 0.0020095711062331676,
+      "ols_coef": 0.08177679829731949,
+      "ols_se": 0.0019106244431513178,
+      "n_observations": 51658,
+      "weak_instrument": "False",
+      "bias_ratio": 1.0105296608399783
+    },
+    "bootstrap_cis": {
+      "VEGF_secretion": {
+        "point_estimate": 3.462382390656069,
+        "se_bootstrap": 0.01696995808835701,
+        "ci_lower": 3.425532777546556,
+        "ci_upper": 3.4917719726622174,
+        "ci_level": 0.95,
+        "n_bootstrap": 500,
+        "method": "BCa",
+        "bias": -0.05015358346473367,
+        "acceleration": 0.0
+      },
+      "migration_rate": {
+        "point_estimate": 0.9946105441886719,
+        "se_bootstrap": 0.0006973327699759611,
+        "ci_lower": 0.9931686541132112,
+        "ci_upper": 0.9958720459663014,
+        "ci_level": 0.95,
+        "n_bootstrap": 500,
+        "method": "BCa",
+        "bias": 0.03008407662018911,
+        "acceleration": 0.0
+      }
+    },
+    "ols_iv_comparison": {
+      "VEGF_secretion": {
+        "ols_estimate": 4.15745682611132,
+        "ols_se": 0.016491628475689177,
+        "ols_ci_lower": 4.123258394549341,
+        "ols_ci_upper": 4.189464253604284,
+        "iv_estimate": 3.462382390656069,
+        "iv_se": 0.017780119439318707,
+        "iv_ci_lower": 3.4286028322631594,
+        "iv_ci_upper": 3.496678792617112,
+        "difference": 0.6950744354552505,
+        "difference_se": 0.015179554217282946,
+        "difference_ci_lower": 0.6653995903751371,
+        "difference_ci_upper": 0.7246788035581336,
+        "bias_significant": "True",
+        "n_bootstrap": 500,
+        "ci_level": 0.95
+      },
+      "migration_rate": {
+        "ols_estimate": 1.024173720904216,
+        "ols_se": 0.00048805981412621625,
+        "ols_ci_lower": 1.0231994167466512,
+        "ols_ci_upper": 1.02509241659321,
+        "iv_estimate": 0.9946105441886719,
+        "iv_se": 0.0006915968620545237,
+        "iv_ci_lower": 0.9932812041641559,
+        "iv_ci_upper": 0.9959165223622509,
+        "difference": 0.029563176715544204,
+        "difference_se": 0.0006901262921053684,
+        "difference_ci_lower": 0.02818756672747275,
+        "difference_ci_upper": 0.030810544627763354,
+        "bias_significant": "True",
+        "n_bootstrap": 500,
+        "ci_level": 0.95
+      }
+    }
+  },
+  "causal_discovery": {
+    "pc_algorithm": {
+      "algorithm": "PC",
+      "nodes": [
+        "ecDNA_count",
+        "egfr_expression",
+        "O2_local",
+        "glucose_local",
+        "VEGF_secretion",
+        "migration_rate"
+      ],
+      "edges": [
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "glucose_local"
+        ],
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "glucose_local"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "VEGF_secretion"
+        ]
+      ],
+      "undirected": [
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ],
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ],
+        [
+          "VEGF_secretion",
+          "migration_rate"
+        ]
+      ],
+      "edge_weights": {},
+      "confidence": {}
+    },
+    "ges_algorithm": {
+      "algorithm": "GES",
+      "nodes": [
+        "ecDNA_count",
+        "egfr_expression",
+        "O2_local",
+        "glucose_local",
+        "VEGF_secretion",
+        "migration_rate"
+      ],
+      "edges": [
+        [
+          "O2_local",
+          "ecDNA_count"
+        ],
+        [
+          "VEGF_secretion",
+          "ecDNA_count"
+        ],
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "egfr_expression",
+          "ecDNA_count"
+        ],
+        [
+          "VEGF_secretion",
+          "O2_local"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ],
+        [
+          "egfr_expression",
+          "glucose_local"
+        ],
+        [
+          "glucose_local",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ],
+        [
+          "VEGF_secretion",
+          "migration_rate"
+        ]
+      ],
+      "undirected": [],
+      "edge_weights": {},
+      "confidence": {}
+    },
+    "pc_vs_truth": {
+      "true_positives": 5,
+      "false_positives": 4,
+      "false_negatives": 0,
+      "precision": 0.5555555555555556,
+      "recall": 1.0,
+      "f1_score": 0.7142857142857143,
+      "structural_hamming_distance": 4,
+      "discovered_edges": [
+        [
+          "egfr_expression",
+          "glucose_local"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ],
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "glucose_local"
+        ],
+        [
+          "glucose_local",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ]
+      ],
+      "missed_edges": [],
+      "extra_edges": [
+        [
+          "egfr_expression",
+          "glucose_local"
+        ],
+        [
+          "O2_local",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "glucose_local",
+          "VEGF_secretion"
+        ]
+      ]
+    },
+    "ges_vs_truth": {
+      "true_positives": 3,
+      "false_positives": 10,
+      "false_negatives": 2,
+      "precision": 0.23076923076923078,
+      "recall": 0.6,
+      "f1_score": 0.33333333333333337,
+      "structural_hamming_distance": 12,
+      "discovered_edges": [
+        [
+          "egfr_expression",
+          "ecDNA_count"
+        ],
+        [
+          "egfr_expression",
+          "glucose_local"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ],
+        [
+          "VEGF_secretion",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ],
+        [
+          "O2_local",
+          "ecDNA_count"
+        ],
+        [
+          "VEGF_secretion",
+          "ecDNA_count"
+        ],
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "VEGF_secretion",
+          "O2_local"
+        ],
+        [
+          "glucose_local",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "egfr_expression",
+          "ecDNA_count"
+        ],
+        [
+          "egfr_expression",
+          "glucose_local"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ],
+        [
+          "VEGF_secretion",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ],
+        [
+          "O2_local",
+          "ecDNA_count"
+        ],
+        [
+          "VEGF_secretion",
+          "ecDNA_count"
+        ],
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "VEGF_secretion",
+          "O2_local"
+        ],
+        [
+          "glucose_local",
+          "VEGF_secretion"
+        ]
+      ]
+    }
+  },
+  "sensitivity": {
+    "rosenbaum_VEGF_secretion": {
+      "analysis_type": "rosenbaum_bounds",
+      "original_estimate": 209.65767801537334,
+      "original_se": 1.9115151449650647,
+      "robustness_value": 50.0,
+      "breakdown_point": 50.0,
+      "plot_data": {
+        "gamma": [
+          1.0,
+          1.5,
+          2.0,
+          3.0,
+          5.0,
+          10.0,
+          15.0,
+          20.0,
+          30.0,
+          50.0
+        ],
+        "upper_bound": [
+          51.36226121899042,
+          41.93711067402241,
+          36.31860320502295,
+          29.65401534097199,
+          22.969901512752756,
+          16.24217312285461,
+          13.261678821646996,
+          11.484950756376378,
+          9.377423024704614,
+          7.263720641004591
+        ],
+        "lower_bound": [
+          51.36226121899042,
+          62.90566601103362,
+          72.6372064100459,
+          88.96204602291598,
+          114.8495075637638,
+          162.4217312285461,
+          198.92518232470496,
+          229.6990151275276,
+          281.3226907411384,
+          363.1860320502295
+        ],
+        "p_value_upper": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.8829382497642655e-13
+        ],
+        "p_value_lower": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "interpretation": "Original effect: 209.658 (SE: 1.912). Effect remains significant (p<0.05) until gamma=50.00. This means an unmeasured confounder would need to change the odds of treatment by a factor of 50.0 to explain away the effect."
+    },
+    "rosenbaum_migration_rate": {
+      "analysis_type": "rosenbaum_bounds",
+      "original_estimate": 55.87702825371938,
+      "original_se": 0.221146544698784,
+      "robustness_value": 50.0,
+      "breakdown_point": 50.0,
+      "plot_data": {
+        "gamma": [
+          1.0,
+          1.5,
+          2.0,
+          3.0,
+          5.0,
+          10.0,
+          15.0,
+          20.0,
+          30.0,
+          50.0
+        ],
+        "upper_bound": [
+          61.18625740310487,
+          49.958369969398895,
+          43.26521752516104,
+          35.325902182388326,
+          27.363326168428447,
+          19.348793489515064,
+          15.798223729265693,
+          13.681663084214224,
+          11.171031129666,
+          8.65304350503221
+        ],
+        "lower_bound": [
+          61.18625740310487,
+          74.93755495409833,
+          86.53043505032208,
+          105.97770654716498,
+          136.81663084214225,
+          193.48793489515063,
+          236.97335593898543,
+          273.6332616842845,
+          335.13093388998,
+          432.65217525161046
+        ],
+        "p_value_upper": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "p_value_lower": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "interpretation": "Original effect: 55.877 (SE: 0.221). Effect remains significant (p<0.05) until gamma=50.00. This means an unmeasured confounder would need to change the odds of treatment by a factor of 50.0 to explain away the effect."
+    },
+    "e_value_migration": {
+      "analysis_type": "e_value",
+      "original_estimate": 0.9946105441888238,
+      "original_se": 0.0006155838490661262,
+      "robustness_value": 4.849869361129973,
+      "breakdown_point": 4.843261659484167,
+      "plot_data": {
+        "e_value_point": [
+          4.849869361129973
+        ],
+        "e_value_ci": [
+          4.843261659484167
+        ]
+      },
+      "interpretation": "E-value = 4.85. An unmeasured confounder would need to be associated with both treatment and outcome by a factor of 4.8 (risk ratio scale) to fully explain the observed effect. E-value for CI lower bound = 4.84."
+    },
+    "omitted_variable_bias": {
+      "analysis_type": "omitted_variable_bias",
+      "original_estimate": 10.310434158921641,
+      "original_se": 0.061504230714991545,
+      "robustness_value": 0.2907983353579017,
+      "breakdown_point": 0.3,
+      "plot_data": {
+        "r2_values": [
+          0.01,
+          0.02,
+          0.05,
+          0.1,
+          0.2,
+          0.3
+        ],
+        "sample_biases": [
+          0.19119696545698123,
+          0.27039334163384293,
+          0.427529411853489,
+          0.6046178925565969,
+          0.855058823706978,
+          1.0472289090732463
+        ]
+      },
+      "interpretation": "Original effect: 10.3104 (SE: 0.0615). To explain away the effect, an omitted variable would need to explain at least 30.0% of variation in both treatment and outcome. Robustness value (RV) = 0.291."
+    },
+    "placebo_tests": {
+      "treatment": "ecDNA_count",
+      "tests": [
+        {
+          "placebo_outcome": "x",
+          "coefficient": -4.182059040668267,
+          "se": 0.8760509268980027,
+          "p_value": 1.813907567704831e-06,
+          "significant": "True"
+        },
+        {
+          "placebo_outcome": "y",
+          "coefficient": -16.45798261909281,
+          "se": 0.8790897490477462,
+          "p_value": 0.0,
+          "significant": "True"
+        }
+      ],
+      "true_effect": {
+        "outcome": "VEGF_secretion",
+        "coefficient": 9.133068278738797
+      },
+      "interpretation": "2 of 2 placebo tests significant. This may indicate confounding or model misspecification."
+    }
+  },
+  "heterogeneity": {
+    "by_region": {
+      "migration_rate": {
+        "analysis_type": "spatial_region",
+        "outcome": "migration_rate",
+        "overall_effect": 0.0,
+        "stratified_effects": [],
+        "heterogeneity_test": {},
+        "interpretation": "Insufficient data for regional stratification."
+      },
+      "VEGF_secretion": {
+        "analysis_type": "spatial_region",
+        "outcome": "VEGF_secretion",
+        "overall_effect": 0.0,
+        "stratified_effects": [],
+        "heterogeneity_test": {},
+        "interpretation": "Insufficient data for regional stratification."
+      }
+    },
+    "by_hypoxia": {
+      "migration_rate": {
+        "analysis_type": "hypoxia_status",
+        "outcome": "migration_rate",
+        "overall_effect": 0.0,
+        "stratified_effects": [],
+        "heterogeneity_test": {},
+        "interpretation": "Analysis of migration_rate by hypoxia status: Insufficient cells in one or both strata."
+      },
+      "VEGF_secretion": {
+        "analysis_type": "hypoxia_status",
+        "outcome": "VEGF_secretion",
+        "overall_effect": 0.0,
+        "stratified_effects": [],
+        "heterogeneity_test": {},
+        "interpretation": "Analysis of VEGF_secretion by hypoxia status: Insufficient cells in one or both strata."
+      }
+    },
+    "by_ecDNA_level": {
+      "migration_rate": {
+        "analysis_type": "ecDNA_level",
+        "outcome": "migration_rate",
+        "overall_effect": 0.0,
+        "stratified_effects": [],
+        "heterogeneity_test": {},
+        "interpretation": "Effect of EGFR on migration_rate by ecDNA level: "
+      },
+      "VEGF_secretion": {
+        "analysis_type": "ecDNA_level",
+        "outcome": "VEGF_secretion",
+        "overall_effect": 0.0,
+        "stratified_effects": [],
+        "heterogeneity_test": {},
+        "interpretation": "Effect of EGFR on VEGF_secretion by ecDNA level: "
+      }
+    },
+    "radial_profiles": {
+      "migration_rate": {
+        "bin_centers": [],
+        "bin_ranges": [],
+        "iv_estimates": [],
+        "iv_se": [],
+        "n_cells": []
+      },
+      "VEGF_secretion": {
+        "bin_centers": [],
+        "bin_ranges": [],
+        "iv_estimates": [],
+        "iv_se": [],
+        "n_cells": []
+      }
+    }
+  },
+  "power_analysis": {
+    "from_data": {
+      "target_effect": 0.05,
+      "required_n": 100000,
+      "achieved_power": 0.050230137120526194,
+      "target_power": 0.8,
+      "alpha": 0.05,
+      "first_stage_r2": 0.8510617659473368,
+      "method": "analytical_iv",
+      "power_curve": {
+        "effect_0.01": [
+          0.050000020730156136,
+          0.05000004146031297,
+          0.05000010365078617,
+          0.050000207301585595,
+          0.05000041460322374,
+          0.050001036508453986
+        ],
+        "effect_0.02": [
+          0.05000008292062786,
+          0.050000165841264294,
+          0.05000041460322374,
+          0.050000829206657896,
+          0.05000165841415767,
+          0.050004146041707706
+        ],
+        "effect_0.05": [
+          0.05000051825406253,
+          0.050001036508453986,
+          0.05000259127360111,
+          0.05000518255542284,
+          0.05001036514372713,
+          0.05002591310591316
+        ],
+        "effect_0.1": [
+          0.050002073018223236,
+          0.050004146041707706,
+          0.05001036514372713,
+          0.05002073041897381,
+          0.050041461363976816,
+          0.05010365735418196
+        ],
+        "effect_0.2": [
+          0.050008292104459694,
+          0.05001658429309354,
+          0.050041461363976816,
+          0.05008292483167881,
+          0.050165858075124664,
+          0.050414708213399904
+        ],
+        "n": [
+          100,
+          200,
+          500,
+          1000,
+          2000,
+          5000
+        ]
+      }
+    },
+    "power_curves": {
+      "effect_sizes": [
+        0.01,
+        0.02,
+        0.05,
+        0.1
+      ],
+      "sample_sizes": [
+        100,
+        200,
+        500,
+        1000,
+        2000,
+        5000
+      ],
+      "first_stage_r2": 0.8510617659473368,
+      "analytical_power": {
+        "effect_0.01": [
+          0.05097547332429356,
+          0.05195210006772835,
+          0.05488879956703793,
+          0.05980542697338019,
+          0.0697172110306908,
+          0.0999951606818083
+        ],
+        "effect_0.02": [
+          0.05390877328149925,
+          0.057835516703768755,
+          0.0697172110306908,
+          0.08982132118941943,
+          0.13089925953363155,
+          0.2566823363271353
+        ],
+        "effect_0.05": [
+          0.07470994010707321,
+          0.0999951606818083,
+          0.1779513106069154,
+          0.3083891371096522,
+          0.540998064443595,
+          0.9034858939239265
+        ],
+        "effect_0.1": [
+          0.15173954707303391,
+          0.2566823363271353,
+          0.540998064443595,
+          0.8308007612851351,
+          0.984833552694159,
+          0.9999974823170686
+        ]
+      },
+      "required_n_80_power": {
+        "effect_0.01": 92225,
+        "effect_0.02": 23057,
+        "effect_0.05": 3689,
+        "effect_0.1": 923
+      },
+      "required_n_90_power": {
+        "effect_0.01": 100000,
+        "effect_0.02": 30866,
+        "effect_0.05": 4939,
+        "effect_0.1": 1235
+      },
+      "mde_by_n": {
+        "n_100": 0.30368459728753194,
+        "n_200": 0.21473743808392065,
+        "n_500": 0.13581188065091432,
+        "n_1000": 0.09603350177395953,
+        "n_2000": 0.06790594032545805,
+        "n_5000": 0.04294748761678413
+      },
+      "recommendations": {
+        "for_delta_0.05": {
+          "effect": 0.05,
+          "required_n_80_power": 3689,
+          "required_n_90_power": 4939
+        },
+        "for_n_1000": {
+          "sample_size": 1000,
+          "mde_80_power": 0.09603350177395953,
+          "power_for_0.05": 0.3083891371096522
+        },
+        "interpretation": "With first-stage R\u00b2=0.85, detecting a 5% effect with 80% power requires ~3689 observations. With 1000 observations, the MDE (80% power) is ~0.096."
+      }
+    }
+  },
+  "ground_truth_comparison": {
+    "ground_truth": {
+      "alpha": 0.3,
+      "beta": 0.1,
+      "delta": 0.05,
+      "gamma": 0.5
+    },
+    "comparisons": {
+      "beta": {
+        "ground_truth": 0.1,
+        "iv_estimate": 3.4623823906576803,
+        "iv_se": 0.01636556468314621,
+        "iv_relative_bias": 33.6238239065768,
+        "ols_estimate": 4.157456826112568,
+        "ols_relative_bias": 40.574568261125684,
+        "iv_within_2se": "False"
+      },
+      "delta": {
+        "ground_truth": 0.05,
+        "iv_estimate": 0.9946105441888238,
+        "iv_se": 0.0006155838490661262,
+        "iv_relative_bias": 18.892210883776475,
+        "ols_estimate": 1.0241737209042514,
+        "ols_relative_bias": 19.483474418085027,
+        "iv_within_2se": "False"
+      }
+    }
+  }
+}
