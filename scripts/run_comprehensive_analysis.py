@@ -22,12 +22,12 @@ import numpy as np
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from causanta.analyze.loader import SimulationData, load_simulation_data
+from causanta.analyze.loader import SimulationData, load_simulation_output
 from causanta.analyze.effects import run_causal_analysis, analyze_ecDNA_segregation
 from causanta.analyze.iv import estimate_iv_effects, estimate_segregation_iv
 from causanta.analyze.discovery import discover_causal_structure, compare_to_ground_truth
 from causanta.analyze.sensitivity import rosenbaum_bounds, e_value_analysis, omitted_variable_bias, placebo_test
-from causanta.analyze.regression import ols_regression, polynomial_regression
+from causanta.analyze.regression import ols_with_inference, polynomial_regression
 from causanta.analyze.matching import propensity_score_matching
 from causanta.analyze.bootstrap import bootstrap_causal_effects, bootstrap_segregation_test, bootstrap_effect_comparison
 from causanta.analyze.power import analyze_power_from_data, comprehensive_power_analysis
@@ -284,7 +284,7 @@ def run_ground_truth_comparison(data: SimulationData, config: dict) -> dict[str,
         "alpha": tumor_config.get("ecDNA_effect_on_division", 0.3),
         "beta": tumor_config.get("ecDNA_effect_on_VEGF", 0.1),
         "delta": tumor_config.get("ecDNA_effect_on_migration", 0.05),
-        "gamma": tumor_config.get("ecDNA_effect_on_survival", 0.2),
+        "gamma": tumor_config.get("ecDNA_effect_on_survival", 0.5),
     }
 
     # Get estimates
@@ -440,7 +440,7 @@ def main():
 
     # Load data
     print("Loading simulation data...")
-    data = load_simulation_data(data_dir)
+    data = load_simulation_output(data_dir)
 
     # Load config for ground truth
     config_path = data_dir / "params.json"

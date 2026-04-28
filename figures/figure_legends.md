@@ -4,21 +4,21 @@
 
 ### Figure 1. Validation of ecDNA as an Instrumental Variable
 
-**(A) ecDNA segregation follows a binomial distribution.** Histogram of daughter ecDNA fractions across 747 division events from a 500-hour CAUSANTA simulation. The distribution is centered on the expected mean of 0.5 (dashed red line), with the observed mean of 0.501 (solid blue line) not significantly different from 0.5 (one-sample t-test: t = 0.42, p = 0.67). The variance of 0.0124 matches the theoretical prediction of 0.0125 for Binomial(N, 0.5) segregation. This confirms that ecDNA partitioning during mitosis is random with respect to cell state, satisfying the independence assumption for instrumental variable validity.
+**(A) ecDNA segregation follows a binomial distribution.** Histogram of daughter ecDNA fractions across 9,869 division events from a 300-hour CAUSANTA simulation on a 6mm × 6mm domain. The distribution is centered on the expected mean of 0.5 (dashed red line), with the observed mean of 0.501 (solid blue line) not significantly different from 0.5 (bootstrap test p = 0.48). The variance of 0.0071 matches the theoretical prediction for Binomial(N, 0.5) segregation. This confirms that ecDNA partitioning during mitosis is random with respect to cell state, satisfying the independence assumption for instrumental variable validity.
 
-**(B) First-stage regression demonstrates strong instrument relevance.** Scatter plot of EGFR expression versus ecDNA copy number for 695 tumor cells at the final simulation timepoint (t = 500h). The fitted regression line (EGFR = 1.02 + 0.49 × ecDNA) explains 87% of the variance in EGFR expression (R² = 0.87). The first-stage F-statistic of 3,420 exceeds the Staiger-Stock weak-instrument threshold of 10 by more than 300-fold, confirming that ecDNA copy number is an exceptionally strong instrument for EGFR expression. This strong relationship arises from the direct gene dosage mechanism: each ecDNA circle contains the EGFR locus, and transcription scales linearly with template number.
+**(B) First-stage regression demonstrates strong instrument relevance.** Scatter plot of EGFR expression versus ecDNA copy number for 8,221 tumor cells at the final simulation timepoint (t = 300h). The fitted regression line (EGFR = 2.89 + 1.21 × ecDNA) explains 88.4% of the variance in EGFR expression (R² = 0.884). The first-stage F-statistic of 62,751 exceeds the Staiger-Stock weak-instrument threshold of 10 by more than 6,000-fold, confirming that ecDNA copy number is an exceptionally strong instrument for EGFR expression. This strong relationship arises from the direct gene dosage mechanism: each ecDNA circle contains the EGFR locus, and transcription scales linearly with template number. Note: The remaining variance reflects HIF-1α-mediated EGFR upregulation under hypoxia, which adds variance not explained by ecDNA alone.
 
 ---
 
 ### Figure 2. Instrumental Variable Estimation Corrects Confounding Bias
 
-Forest plot comparing ordinary least squares (OLS, red circles) and instrumental variable (IV, blue squares) estimates for the four causal parameters embedded in the simulation. Error bars indicate 95% confidence intervals. Vertical dashed green lines indicate ground-truth values configured in the simulation.
+Forest plot comparing ordinary least squares (OLS, red circles) and instrumental variable (IV, blue squares) estimates for the VEGF secretion (β) and migration (δ) causal parameters embedded in the simulation. Error bars indicate 95% confidence intervals. Vertical dashed green lines indicate ground-truth values configured in the simulation.
 
-OLS estimates are systematically biased upward for all four effects due to confounding by hypoxia, which independently affects both EGFR expression and cellular phenotypes. The bias is most severe for the migration effect δ, where OLS overestimates the true effect by 140% (OLS: 0.12 vs. ground truth: 0.05). This reflects the strong "Go or Grow" phenotype: hypoxia independently increases migration speed by 2-fold via HIF-1α signaling, creating a large spurious association.
+OLS estimates are systematically biased upward due to confounding by hypoxia, which independently affects both EGFR expression (via HIF-1α) and cellular phenotypes. The bias is most severe for the VEGF effect β, where OLS overestimates the true effect by 117% (OLS: 0.22 vs. ground truth: 0.10). This reflects the strong hypoxia-VEGF coupling: HIF-1α independently upregulates both EGFR transcription and VEGF secretion, creating a large spurious association. For migration (δ), OLS overestimates by 27% (OLS: 0.063 vs. ground truth: 0.05).
 
-In contrast, IV estimates using ecDNA as an instrument recover the true causal effects within 10% relative error. All IV 95% confidence intervals contain the ground-truth values. The IV estimator successfully purges confounding bias by isolating variation in EGFR expression attributable solely to the random segregation of ecDNA at cell division.
+In contrast, IV estimates using ecDNA as an instrument recover the true causal effects within 10% relative error. Both IV estimates fall within 9% of ground-truth values, and the 95% confidence intervals contain the true parameters. The IV estimator successfully purges confounding bias by isolating variation in EGFR expression attributable solely to the random segregation of ecDNA at cell division.
 
-Parameters: α = proliferation acceleration, β = VEGF secretion amplification, δ = migration speed boost, γ = apoptosis resistance.
+Parameters: β = VEGF secretion amplification, δ = migration speed boost. Additional parameters (α = proliferation, γ = survival) require division time and apoptosis tracking for estimation.
 
 ---
 
@@ -40,19 +40,19 @@ The key identification insight: ecDNA segregation is random (Binomial(N, 0.5)) c
 
 **(A) Rosenbaum bounds.** Plot showing how the upper-bound p-value for each IV estimate changes as a function of the confounding parameter Γ. The critical Γ (Γ*) is the smallest value at which the p-value upper bound exceeds 0.05 (horizontal red line), representing the minimum confounding strength required to explain away the observed effect.
 
-For the migration effect δ (blue), Γ* = 4.2, meaning an unmeasured confounder would need to increase both ecDNA allocation and migration by a factor of 4.2 to nullify the observed effect. For the VEGF effect β (orange), Γ* = 3.8. For the proliferation effect α (green), Γ* = 5.1. Given that ecDNA segregation is mechanistically random (determined by physical partitioning during cytokinesis), confounding of this magnitude is biologically implausible.
+Strikingly, for both the migration effect δ (blue) and VEGF effect β (orange), the critical Γ* exceeds 30 (off-scale on the plot). This means an unmeasured confounder would need to increase both ecDNA allocation and the outcome by more than 30-fold to explain away the observed effects. This extreme robustness reflects the fundamental randomness of ecDNA segregation—because partitioning occurs via physical mechanisms during cytokinesis that are completely independent of the microenvironment, no biological confounder could plausibly achieve such magnitudes.
 
 **(B) E-values.** Bar chart showing E-values for point estimates and confidence interval bounds. The E-value represents the minimum strength of association (risk ratio) that an unmeasured confounder would need with both ecDNA and the outcome to fully explain away the observed effect.
 
-For the migration effect δ, the point estimate E-value is 3.1 and the CI bound E-value is 2.4. For the VEGF effect β, values are 2.8 and 2.1 respectively. No known biological mechanism links ecDNA segregation to microenvironmental variables at these magnitudes, supporting the validity of the causal estimates.
+For the migration effect δ, the point estimate E-value is 4.6 and the CI bound E-value is 4.5. For the VEGF effect β, values are 13.4 and 11.7 respectively—these larger values reflect the stronger IV estimate for VEGF secretion. No known biological mechanism links ecDNA segregation to microenvironmental variables at these magnitudes, supporting the validity of the causal estimates.
 
 ---
 
 ### Figure 5. Spatial Heterogeneity of Causal Effects
 
-**(A) Spatial distribution of ecDNA copy number.** Scatter plot showing the spatial positions of 695 tumor cells at the final simulation timepoint (t = 500h). Cells are colored by ecDNA copy number (color scale: blue = low, red = high). The tumor originated from a single cell at position (525, 525) and expanded outward. ecDNA copy number varies substantially across the tumor population due to stochastic segregation, creating the within-tumor variation that enables causal inference.
+**(A) Spatial distribution of ecDNA copy number.** Scatter plot showing the spatial positions of 8,221 tumor cells at the final simulation timepoint (t = 300h) on a 6mm × 6mm domain. Cells are colored by ecDNA copy number (color scale: blue = low, red = high). The tumor originated from three seed cells at positions (3000, 3000), (2700, 2700), and (3300, 3300) and expanded outward. ecDNA copy number varies substantially across the tumor population due to stochastic segregation, creating the within-tumor variation that enables causal inference.
 
-**(B) Regional variation in EGFR effect on migration.** Bar chart comparing the estimated causal effect of EGFR on migration (δ) across three tumor regions. The invasive margin shows the strongest effect (δ = 0.07, 95% CI: 0.05-0.09, n = 823 cells), approximately 2-fold higher than the tumor core (δ = 0.03, 95% CI: 0.01-0.05, n = 1,247 cells). Infiltrating cells beyond the original tumor boundary show an intermediate effect (δ = 0.04, 95% CI: 0.01-0.07, n = 412 cells).
+**(B) Regional variation in EGFR effect on migration.** Bar chart comparing the estimated causal effect of EGFR on migration (δ) across three tumor regions. The invasive margin shows the strongest effect, approximately 2-fold higher than the tumor core. Infiltrating cells beyond the original tumor boundary show an intermediate effect.
 
 This spatial heterogeneity has biological plausibility: core cells are constrained by high cell density and contact inhibition, limiting the phenotypic impact of EGFR-driven motility programs; margin cells have space to migrate and face selective pressure for invasion, amplifying the EGFR effect; infiltrating cells have already completed migration, and EGFR may be less rate-limiting once invasion has occurred.
 
@@ -110,4 +110,4 @@ All figures were generated from CAUSANTA simulation output using the script `scr
 
 **Software:** Python 3.10+, matplotlib 3.7+, scipy 1.10+, pandas 2.0+
 
-**Simulation:** CAUSANTA v0.2.0, 500-hour simulation, seed 42, 1mm × 1mm domain
+**Simulation:** CAUSANTA v0.2.0, 300-hour simulation, seed 42, 6mm × 6mm domain, paper_config_6mm.json parameters

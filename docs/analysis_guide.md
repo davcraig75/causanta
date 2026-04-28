@@ -639,7 +639,7 @@ def plot_ecdna_evolution(lineage, ax=None):
     return ax
 
 
-def plot_spatial_snapshot(cells, domain_size=1000, ax=None):
+def plot_spatial_snapshot(cells, domain_size=6000, ax=None):
     """Plot spatial distribution of cells."""
     if ax is None:
         fig, ax = plt.subplots(figsize=(8, 8))

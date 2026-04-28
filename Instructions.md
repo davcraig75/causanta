@@ -32,7 +32,7 @@ EGFR_expression (EXPOSURE, gene dosage)
     |---> Proliferation rate    (alpha = 0.3)
     |---> Migration speed       (delta = 0.05)
     |---> VEGF secretion        (beta = 0.1)
-    |---> Apoptosis resistance  (gamma = 0.2)
+    |---> Apoptosis resistance  (gamma = 0.5)
               ^
               |
         O2_local (CONFOUNDER, affects outcomes but NOT ecDNA)
@@ -225,7 +225,7 @@ SimulationConfig
     "ecDNA_effect_on_division": 0.3,
     "ecDNA_effect_on_VEGF": 0.1,
     "ecDNA_effect_on_migration": 0.05,
-    "ecDNA_effect_on_survival": 0.2
+    "ecDNA_effect_on_survival": 0.5
 }
 ```
 
@@ -319,7 +319,7 @@ def replicate_and_segregate_ecdna(parent_count, p=0.5, rng, replication_fidelity
 | Division time | `T_eff = T_base / (1 + alpha * log2(1 + EGFR))` | alpha | 0.3 |
 | VEGF secretion | `S_eff = S_base * (1 + beta * sqrt(EGFR))` | beta | 0.1 |
 | Migration speed | `v_eff = v_base * (1 + delta * EGFR) * hypoxia_mult` | delta | 0.05 |
-| Apoptosis rate | `a_eff = a_base / (1 + gamma * log2(1 + EGFR))` | gamma | 0.2 |
+| Apoptosis rate | `a_eff = a_base / (1 + gamma * log2(1 + EGFR))` | gamma | 0.5 |
 
 Where `hypoxia_mult = 2.0` if hypoxic, else `1.0` (the Go-or-Grow switch).
 

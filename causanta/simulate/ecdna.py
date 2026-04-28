@@ -35,7 +35,7 @@ EGFR_NOISE_CV = 0.1          # Coefficient of variation for transcriptional nois
 # required for X to be endogenous w.r.t. hypoxia, which is what the SIV
 # framework is designed to correct for. Without this term, corr(EGFR, M)=0
 # by construction and IV has no OLS bias to correct.
-EGFR_HYPOXIA_UPREGULATION = 0.5  # fractional boost under hypoxia (1+value)x mRNA
+EGFR_HYPOXIA_UPREGULATION = 1.5  # fractional boost under hypoxia (1+value)x mRNA
 
 
 def compute_egfr_expression(
@@ -73,9 +73,9 @@ def compute_egfr_expression(
     Returns:
         EGFR expression level (arbitrary units, ~1.0 for normal cells)
 
-    Example (at ecDNA=20, kappa_hyp=0.5):
+    Example (at ecDNA=20, kappa_hyp=1.5):
         normoxic:  EGFR ~ 1 + 0.5*20 = 11.0
-        hypoxic:   EGFR ~ (1 + 0.5*20) * 1.5 = 16.5
+        hypoxic:   EGFR ~ (1 + 0.5*20) * 2.5 = 27.5
 
     References:
         Hung et al. (2021) Nature: ecDNA forms transcriptional hubs
@@ -318,10 +318,10 @@ def modulate_apoptosis_rate(
     Formula (saturating protection):
         a_eff = a_base / (1 + gamma * log2(1 + EGFR_expression))
 
-    With gamma=0.2:
-        - EGFR=1 (normal): a_eff = a_base / 1.2 (17% reduction)
-        - EGFR=6 (10 ecDNA): a_eff = a_base / 1.56 (36% reduction)
-        - EGFR=11 (20 ecDNA): a_eff = a_base / 1.72 (42% reduction)
+    With gamma=0.5:
+        - EGFR=1 (normal): a_eff = a_base / 1.5 (33% reduction)
+        - EGFR=6 (10 ecDNA): a_eff = a_base / 2.4 (58% reduction)
+        - EGFR=11 (20 ecDNA): a_eff = a_base / 2.8 (64% reduction)
 
     Args:
         base_rate: Base apoptosis rate

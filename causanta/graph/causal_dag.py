@@ -264,7 +264,7 @@ def build_causanta_dag(params: dict[str, Any] | None = None) -> CausalDAG:
     1. ecDNA (EGFR) → Proliferation (+): EGFR signaling drives cell cycle
     2. Proliferation → O2 consumption: Growing cells deplete oxygen
     3. Low O2 = Hypoxia: Creates metabolic stress
-    4. Hypoxia → Invasion (+): "Go" response - cells escape hypoxic core
+    4. Hypoxia → Migration (+): "Go" response - cells escape hypoxic core
     5. Hypoxia → Proliferation (-): "Grow" suppressed under hypoxia
     6. Hypoxia → VEGF (+): HIF-1α induces angiogenic signaling
     7. VEGF → Vessels (+): Angiogenesis
@@ -283,7 +283,7 @@ def build_causanta_dag(params: dict[str, Any] | None = None) -> CausalDAG:
     alpha = params.get("alpha", params.get("ecDNA_effect_on_division", 0.3))
     beta = params.get("beta", params.get("ecDNA_effect_on_VEGF", 0.1))
     delta = params.get("delta", params.get("ecDNA_effect_on_migration", 0.05))
-    gamma = params.get("gamma", params.get("ecDNA_effect_on_survival", 0.2))
+    gamma = params.get("gamma", params.get("ecDNA_effect_on_survival", 0.5))
 
     # EGFR expression parameters (from ecdna.py)
     egfr_per_copy = params.get("EGFR_per_ecDNA_copy", 0.5)
@@ -303,7 +303,7 @@ def build_causanta_dag(params: dict[str, Any] | None = None) -> CausalDAG:
             "a somatic instrumental variable (SIV) with binomial segregation providing "
             "natural randomization. Causal chain: ecDNA_count → EGFR_expression → Phenotypes. "
             "Key pathways: (1) ecDNA → EGFR → Proliferation, "
-            "(2) Hypoxia → Invasion, (3) Proliferation → O2 depletion → Hypoxia feedback. "
+            "(2) Hypoxia → Migration, (3) Proliferation → O2 depletion → Hypoxia feedback. "
             "Ref: Hung et al. 2021 (ecDNA transcriptional hubs)"
         ),
     )
@@ -353,7 +353,7 @@ def build_causanta_dag(params: dict[str, Any] | None = None) -> CausalDAG:
     ))
 
     dag.add_node(CausalNode(
-        name="Invasion",
+        name="Migration",
         description=(
             "Cell migration/invasion capacity. Activated under hypoxia as "
             "'escape' response (Go or Grow hypothesis). Involves EMT, MMP "
@@ -495,7 +495,7 @@ def build_causanta_dag(params: dict[str, Any] | None = None) -> CausalDAG:
     # --- EGFR expression drives invasion capacity ---
     dag.add_edge(CausalEdge(
         source="EGFR_expression",
-        target="Invasion",
+        target="Migration",
         effect_type=EffectType.MULTIPLICATIVE,
         parameter_symbol="δ",
         parameter_name="ecDNA_effect_on_migration",
@@ -512,7 +512,7 @@ def build_causanta_dag(params: dict[str, Any] | None = None) -> CausalDAG:
     # --- Hypoxia drives invasion ("Go" response) ---
     dag.add_edge(CausalEdge(
         source="Hypoxia",
-        target="Invasion",
+        target="Migration",
         effect_type=EffectType.MULTIPLICATIVE,
         parameter_symbol="ψ",
         parameter_name="hypoxia_invasion_boost",

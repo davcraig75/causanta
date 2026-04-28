@@ -60,7 +60,8 @@ def rosenbaum_bounds(
         SensitivityResult with bounds at each gamma level.
     """
     if gamma_range is None:
-        gamma_range = [1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
+        # Extended range to find actual breakdown point
+        gamma_range = [1.0, 1.5, 2.0, 3.0, 5.0, 10.0, 15.0, 20.0, 30.0, 50.0]
 
     tumor_cells = data.tumor_cells
     if len(tumor_cells) < 20:

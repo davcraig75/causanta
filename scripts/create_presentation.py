@@ -494,7 +494,7 @@ def create_presentation():
         "Migration: v_eff = v_base × (1 + δ·ecDNA)",
         ("δ = 0.05: 5% faster migration per ecDNA copy", 1),
         "Survival: a_eff = a_base / (1 + γ·ecDNA)",
-        ("γ = 0.20: 20% survival boost per ecDNA copy", 1),
+        ("γ = 0.50: 50% survival boost per ecDNA copy", 1),
     ])
 
     # ==================== ANALYSIS ====================

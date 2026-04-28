@@ -12,6 +12,7 @@ Implements the 6-phase simulation loop from Section 8 of the framework:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 from pathlib import Path
@@ -64,6 +65,7 @@ from .io import (
     write_lineage_tsv,
     write_summary_log,
 )
+from .movie import generate_movie_html
 from .reporting import generate_report
 from .viewer import generate_standalone_html, generate_vega_json
 from .visualization import write_html_viewer, write_vega_spec
@@ -213,7 +215,22 @@ class Simulation:
                 total,
                 self.config.time.output_interval_hr,
             )
-            write_html_viewer(reports_dir)
+
+            # Generate Vega JSON spec with embedded data (must be first for index.html)
+            vega_json_path = generate_vega_json(
+                population=self.population,
+                env=self.env,
+                domain=self.domain,
+                config=self.config,
+                time_hr=float(total),
+                output_path=figures_dir / "simulation.vl.json",
+            )
+            print(f"  Vega spec: {vega_json_path}")
+
+            # Load the spec and embed it in index.html for standalone viewing
+            with open(vega_json_path) as f:
+                vega_spec = json.load(f)
+            write_html_viewer(reports_dir, vega_spec=vega_spec)
             print(f"  Visualization: {reports_dir / 'index.html'}")
 
             # Generate standalone HTML viewer with embedded Vega-Lite
@@ -228,20 +245,25 @@ class Simulation:
             )
             print(f"  Standalone viewer: {standalone_path}")
 
-            # Generate Vega JSON spec with embedded data
-            vega_json_path = generate_vega_json(
-                population=self.population,
-                env=self.env,
-                domain=self.domain,
-                config=self.config,
-                time_hr=float(total),
-                output_path=figures_dir / "simulation.vl.json",
-            )
-            print(f"  Vega spec: {vega_json_path}")
+            # Generate animated movie from time-series data
+            print("Generating animation...")
+            try:
+                movie_path = generate_movie_html(
+                    output_dir=data_dir,
+                    movie_path=reports_dir / "movie.html",
+                    domain_width=self.domain.width_um,
+                    domain_height=self.domain.height_um,
+                    fps=4,
+                    max_frames=200,
+                    render_mode="tumor_focus",
+                )
+                print(f"  Animation: {movie_path}")
+            except ValueError as e:
+                print(f"  Animation skipped: {e}")
 
             # Generate comprehensive report
             print("Generating report...")
-            report_path = generate_report(reports_dir, self.config, elapsed)
+            report_path = generate_report(reports_dir, self.config, elapsed, data_dir=data_dir)
             print(f"  Report: {report_path}")
 
     def _step_environment(self) -> None:
