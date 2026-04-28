@@ -82,8 +82,8 @@ All parameters are set in the `immune_recruitment` section of the JSON configura
 
 | Parameter | Default | Unit | Description |
 |-----------|---------|------|-------------|
-| `chemokine_threshold` | 0.5 | nM | Minimum chemokine (VEGF proxy) for immune recruitment |
-| `recruitment_rate_per_hr` | 0.01 | 1/hr | Rate of new immune cell entry at vascular sites |
+| `chemokine_threshold` | 2.0 | nM | Minimum chemokine (VEGF proxy) for immune recruitment |
+| `recruitment_rate_per_hr` | 0.003 | 1/hr | Rate of new immune cell entry at vascular sites (GBM-restricted) |
 
 **How to adjust:**
 - Increase `recruitment_rate_per_hr` to simulate stronger immune response (e.g., immunotherapy)
@@ -143,10 +143,10 @@ if not in_contact:
 
 | Parameter | Default | Unit | Description |
 |-----------|---------|------|-------------|
-| `activation_radius_um` | 50.0 | um | Distance to sense tumor for activation |
-| `activation_rate_per_hr` | 0.3 | 1/hr | Rate of activation when tumor nearby |
-| `deactivation_rate_per_hr` | 0.05 | 1/hr | Rate of deactivation when away from tumor |
-| `min_activation_for_kill` | 0.2 | level | Minimum activation to attempt killing |
+| `activation_radius_um` | 30.0 | um | Distance to sense tumor for activation |
+| `activation_rate_per_hr` | 0.1 | 1/hr | Rate of activation when tumor nearby |
+| `deactivation_rate_per_hr` | 0.15 | 1/hr | Rate of deactivation when away from tumor (GBM: faster than activation) |
+| `min_activation_for_kill` | 0.5 | level | Minimum activation to attempt killing |
 
 **Activation model:**
 - Immune cells start with `activation_level = 0.5` when recruited
@@ -164,7 +164,7 @@ if not in_contact:
 |-----------|---------|------|-------------|
 | `chemokine_diffusion_um2_hr` | 1800.0 | um^2/hr | Chemokine diffusion coefficient |
 | `chemokine_decay_per_hr` | 0.5 | 1/hr | Chemokine decay rate |
-| `tumor_chemokine_secretion` | 1.0 | relative | Tumor secretion rate |
+| `tumor_chemokine_secretion` | 0.3 | relative | Tumor secretion rate |
 
 **Note:** Currently chemokine is approximated using VEGF. These parameters prepare for future explicit chemokine substrate.
 

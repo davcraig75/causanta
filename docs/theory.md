@@ -211,17 +211,19 @@ ecDNA_effect_on_survival   float    γ: apoptosis resistance per ecDNA copy
 
 ### 3.4 Reference Parameter Values
 
+Values below are from `causanta/simulate/params/default.json`. The publication run uses `paper_config_6mm.json`, which differs in tumor `division_time_mean_hr` (24 vs 36).
+
 | Parameter | Neuron | Astrocyte | Oligo | Microglia | Endothelial | Pericyte | Tumor |
 |-----------|--------|-----------|-------|-----------|-------------|----------|-------|
-| diameter (μm) | 15±3 | 12±2 | 10±2 | 9±1 | 12±2 | 6±1 | 20±4 |
-| can_divide | no | yes | yes | yes | yes | yes | yes |
-| division_time (hr) | — | 168±24 | 168±24 | 72±12 | 60±12 | 96±12 | 36±8 |
-| migration (μm/hr) | 0 | 3±1 | 1±0.5 | 30±10 | 10±3 | 5±2 | 10±3 |
-| O₂ consumption (amol/hr) | 30000 | 12000 | 9000 | 6000 | 3000 | 2000 | 15000 |
-| O₂ prolif threshold (mmHg) | — | 10 | 10 | 5 | 8 | 8 | 5 |
+| diameter (μm) | 15±3 | 12±2 | 10±2 | 9±1 | 12±2 | 6±1 | 18±3 |
+| can_divide | no | yes | no | no | yes | no | yes |
+| division_time (hr) | — | 168±24 | — | — | 60±12 | — | 36±8 |
+| migration (μm/hr) | 0 | 3 | 1 | 30 | 10 | 5 | 10 |
+| O₂ consumption (amol/hr) | 30000 | 12000 | 9000 | 6000 | 3000 | 2000 | 72000 |
+| O₂ prolif threshold (mmHg) | — | 10 | 10 | 5 | 8 | 8 | 8 |
 | O₂ necrosis threshold (mmHg) | 2.5 | 2.5 | 2.5 | 1.0 | 2.5 | 2.5 | 2.5 |
-| VEGF secretion (amol/hr, hypoxic) | 0 | 30 | 0 | 0 | 0 | 0 | 50 |
-| apoptosis rate (/hr) | 1e-4 | 1e-4 | 1e-4 | 1e-4 | 1e-4 | 1e-4 | 1e-4 |
+| VEGF secretion (amol/hr) | 0 | 30 | 0 | 0 | 0 | 0 | 600 |
+| apoptosis rate (/hr) | 1e-4 | 1e-4 | 1e-4 | 1e-4 | 1e-4 | 1e-4 | 5e-5 |
 
 ---
 

@@ -613,6 +613,29 @@ Please finalize my session with the following steps:
 
 ## Change Log
 
+### 2026-04-28
+
+**Documentation alignment with 6mm publication run; manuscript figure refresh**
+
+- **Updated:** `docs/manuscript/manuscript.md` — numerical parameter values aligned with `paper_config_6mm.json`
+  - τ_hypoxia: 10 → 18 mmHg
+  - Tumor T_base: 36 → 24 hr
+  - O₂ vascular transfer rate q: 5 → 2 hr⁻¹
+  - O₂_blood: 60 → 40 mmHg
+  - Cell type table tumor division time: 36h → 24h
+- **Updated:** `docs/theory.md` — §3.4 reference parameter table matches `default.json`; added clarifying note about `paper_config_6mm.json` divergence (tumor diameter 18 μm, O₂ consumption 72000 amol/hr, VEGF 600 amol/hr, apoptosis 5e-5/hr; oligodendrocyte/microglia/pericyte marked non-dividing)
+- **Updated:** `docs/supplementary_materials.md` — §8 simulation parameter tables rebuilt: domain 1 mm, time 168 hr, full 9-cell-type table, ecDNA Greek-letter effect parameters (α, β, δ, γ); added 6 mm publication-run delta note
+- **Updated:** `docs/immune_system.md` — parameter tables match GBM-restrictive defaults (`recruitment_rate_per_hr` 0.003, `activation_rate_per_hr` 0.1, `deactivation_rate_per_hr` 0.15, `min_activation_for_kill` 0.5, `tumor_chemokine_secretion` 0.3)
+- **Updated:** `docs/manuscript/README.md` — figure index pointing to renamed/regenerated figures
+- **Added:** `docs/manuscript/figures/figure1_segregation_firststage.png` (segregation + first-stage panel)
+- **Added:** `docs/manuscript/figures/figure2_ols_vs_iv.png` (renamed from `figure2_forest_ols_iv.png`)
+- **Added:** `docs/manuscript/figures/figure3_causal_dag.png` (rendered structural causal model)
+- **Added:** `docs/manuscript/figures/figure5_spatial_heterogeneity.png` (renamed from `figure5_spatial.png`)
+- **Updated:** `docs/manuscript/figures/figure4_sensitivity.png` (regenerated)
+- **Removed:** `docs/manuscript/figures/figure1_segregation.png`, `figure2_forest_ols_iv.png`, `figure5_spatial.png` (superseded by renamed versions)
+- **Removed:** `examples/README.md`, `examples/analyze_simulation.py` (analysis flows now live in `scripts/run_comprehensive_analysis.py`)
+- **Verified:** Reproducibility of the 6 mm × 300 hr publication run with `paper_config_6mm.json` (seed 42); 9,869 division events recovered exactly, matching the manuscript's reported count.
+
 ### 2024-04-23
 
 **Major documentation overhaul and infrastructure additions**

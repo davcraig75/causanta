@@ -398,30 +398,38 @@ Threshold: edges with stability > 0.5 are retained.
 
 ## 8. Simulation Parameters
 
+Default values below are taken from `causanta/simulate/params/default.json`. The 6mm publication run uses `paper_config_6mm.json`, which differs in domain size (6000 μm), total_hours (300), `O2_blood_mmHg` (40 vs 60), `q_O2_transfer_per_hr` (2 vs 5), `hypoxia_threshold_mmHg` (18 vs 10), and tumor `division_time_mean_hr` (24 vs 36).
+
 ### 8.1 Domain Configuration
 
 | Parameter | Default Value | Description |
 |-----------|---------------|-------------|
-| width_um | 2000 | Domain width (μm) |
-| height_um | 2000 | Domain height (μm) |
-| dx_um | 10 | Grid spacing (μm) |
+| width_um | 1000 | Domain width (μm) |
+| height_um | 1000 | Domain height (μm) |
+| env_grid_um | 10 | Environment grid spacing (μm) |
 
 ### 8.2 Time Configuration
 
 | Parameter | Default Value | Description |
 |-----------|---------------|-------------|
-| dt_hr | 1.0 | Time step (hours) |
-| total_hours | 300 | Simulation duration |
-| output_every_hr | 1.0 | Output frequency |
+| total_hours | 168 | Simulation duration (hours) |
+| dt_diffusion_hr | 0.01 | Diffusion sub-step (hours) |
+| output_interval_hr | 1 | Output frequency (hours) |
+| burnin_hours | 20 | Burn-in equilibration (hours) |
 
 ### 8.3 Cell Type Parameters
 
-| Cell Type | Division Time (hr) | Apoptosis Rate (/hr) | Migration Speed (μm/hr) |
-|-----------|-------------------|---------------------|------------------------|
-| Neuron | - | 0.001 | 0 |
-| Astrocyte | 100 | 0.002 | 1 |
-| Tumor | 36 | 0.01 | 10 |
-| Immune | - | 0.01 | 30 |
+| Cell Type | Can Divide | Division Time (hr) | Apoptosis Rate (/hr) | Migration Speed (μm/hr) |
+|-----------|------------|--------------------|----------------------|-------------------------|
+| Neuron | no | — | 1e-4 | 0 |
+| Astrocyte | yes | 168 ± 24 | 1e-4 | 3 |
+| Oligodendrocyte | no | — | 1e-4 | 1 |
+| Microglia | no | — | 1e-4 | 30 |
+| Endothelial | yes | 60 ± 12 | 1e-4 | 10 |
+| Pericyte | no | — | 1e-4 | 5 |
+| Tumor | yes | 36 ± 8 | 5e-5 | 10 |
+| RecruitedImmune | yes | 36 ± 8 | 1e-3 | 35 |
+| Necrotic | no | — | 0 | 0 |
 
 ### 8.4 ecDNA Parameters
 
@@ -429,8 +437,10 @@ Threshold: edges with stability > 0.5 are retained.
 |-----------|-------|-------------|
 | Initial copies | 20 | Starting ecDNA in seed tumor |
 | Segregation p | 0.5 | Binomial probability |
-| Replication fidelity | 0.95 | Probability of ecDNA replication per cycle |
-| Gene dosage slope | 1.5 | EGFR per ecDNA copy |
+| α (effect on division) | 0.30 | T_eff = T_base / (1 + α·log₂(1 + ecDNA)) |
+| β (effect on VEGF) | 0.10 | VEGF_eff = VEGF_base × (1 + β·ecDNA) |
+| δ (effect on migration) | 0.05 | v_eff = v_base × (1 + δ·ecDNA) |
+| γ (effect on survival) | 0.50 | a_eff = a_base / (1 + γ·ecDNA) |
 
 ---
 

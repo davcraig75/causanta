@@ -74,11 +74,11 @@ $$X: = f_{X}(Z,\epsilon_{X}) = X_{\text{base}} + \kappa \cdot min(Z,Z_{\text{max
 
 $$\epsilon_{X} \sim \text{LogNormal}(0,\sigma_{X}^{2})$$
 
-Hypoxia status (U_O2 → M) was calculated where $\tau_{hypoxia} = 10$ mmHg is the threshold for HIF-1α stabilization. This is a deterministic threshold function reflecting the sharp oxygen dependence of HIF degradation.
+Hypoxia status (U_O2 → M) was calculated where $\tau_{hypoxia} = 18$ mmHg is the threshold for HIF-1α stabilization. This is a deterministic threshold function reflecting the sharp oxygen dependence of HIF degradation.
 
 $$M: = \mathbf{1}\lbrack U_{O2} < \tau_{hypoxia}\rbrack$$
 
-Cell cycle duration (X, M, U_O2 → Y₁) was calculated where $T_{\text{base}} = 36$ hours is the baseline division time, $\alpha = 0.3$ is the EGFR-mediated acceleration, and $\tau_{prolif} = 8$ mmHg is the minimum oxygen for proliferation. The indicator functions enforce the biological constraint that severely hypoxic cells arrest proliferation:
+Cell cycle duration (X, M, U_O2 → Y₁) was calculated where $T_{\text{base}} = 24$ hours is the baseline division time, $\alpha = 0.3$ is the EGFR-mediated acceleration, and $\tau_{prolif} = 8$ mmHg is the minimum oxygen for proliferation. The indicator functions enforce the biological constraint that severely hypoxic cells arrest proliferation:
 
 $$Y_{1}: = f_{Y1}(X,M,U_{O2}) = \frac{T_{\text{base}}}{1 + \alpha \cdot \log_{2}(1 + X)} \cdot \mathbf{1}\lbrack U_{O2} > \tau_{prolif}\rbrack \cdot \mathbf{1}\lbrack M = 0\rbrack$$
 
@@ -148,7 +148,7 @@ The Microenvironment is discretized on a 10 μm grid and evolved via implicit Lo
 
 $$\frac{\partial u}{\partial t} = D\nabla^{2}u + S(x,t) - \lambda u$$
 
-Oxygen is supplied from vessels at rate proportional to vascular density and the O2 gradient where $q = 5$ h⁻¹ and $O_{2,\text{blood}} = 60$ mmHg.
+Oxygen is supplied from vessels at rate proportional to vascular density and the O2 gradient where $q = 2$ h⁻¹ and $O_{2,\text{blood}} = 40$ mmHg.
 
 $$\frac{dO_{2}}{dt}|_{\text{supply}} = q \cdot \rho_{\text{vasc}} \cdot (O_{2,\text{blood}} - O_{2,\text{local}})$$
 
@@ -173,7 +173,7 @@ We model the Immune System, where the immune module implements GBM-realistic imm
 
   Pericyte          \-              5 μm/h            Vessel stabilization
 
-  Tumor             36h             10 μm/h           Non-contact-inhibited, ecDNA+
+  Tumor             24h             10 μm/h           Non-contact-inhibited, ecDNA+
 
   RecruitedImmune   36h             35 μm/h           Chemotaxis, exhaustion dynamics
 

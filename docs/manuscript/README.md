@@ -14,11 +14,12 @@ This directory contains the manuscript and supplementary materials for the CAUSA
 
 | Figure | Description |
 |--------|-------------|
-| [`figures/figure1_segregation.png`](figures/figure1_segregation.png) | ecDNA segregation validation (binomial distribution) |
-| [`figures/figure2_forest_ols_iv.png`](figures/figure2_forest_ols_iv.png) | Forest plot comparing OLS vs IV estimates |
-| [`figures/figure4_sensitivity.png`](figures/figure4_sensitivity.png) | Sensitivity analysis (Rosenbaum bounds, E-values) |
-| [`figures/figure5_spatial.png`](figures/figure5_spatial.png) | Spatial heterogeneity of causal effects |
 | [`figures/table1_siv_comparison.png`](figures/table1_siv_comparison.png) | Comparison of somatic instrumental variables |
+| [`figures/figure1_segregation_firststage.png`](figures/figure1_segregation_firststage.png) | ecDNA segregation validation and first-stage regression |
+| [`figures/figure2_ols_vs_iv.png`](figures/figure2_ols_vs_iv.png) | Forest plot comparing OLS vs IV estimates |
+| [`figures/figure3_causal_dag.png`](figures/figure3_causal_dag.png) | Structural causal model (DAG) |
+| [`figures/figure4_sensitivity.png`](figures/figure4_sensitivity.png) | Sensitivity analysis (Rosenbaum bounds, E-values) |
+| [`figures/figure5_spatial_heterogeneity.png`](figures/figure5_spatial_heterogeneity.png) | Spatial heterogeneity of causal effects |
 
 ## Viewing the Manuscript
 
