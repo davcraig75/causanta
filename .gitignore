@@ -40,8 +40,9 @@ ENV/
 Thumbs.db
 
 # Simulation outputs (large files)
-output/run_*
-output/enhanced_analysis_*
+output/
+results/
+*.log
 
 # Numba cache
 *.nbi
