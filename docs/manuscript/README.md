@@ -7,17 +7,18 @@ This directory contains the manuscript and supplementary materials for the CAUSA
 | File | Description |
 |------|-------------|
 | [`manuscript.md`](manuscript.md) | Main manuscript in Markdown format (GitHub-rendered) |
-| [`Causal.v042226.v2.docx`](Causal.v042226.v2.docx) | Original Word document |
-| [`supplementary_materials.docx`](supplementary_materials.docx) | Supplementary materials (Word) |
+| [`manuscript.docx`](manuscript.docx) | Main manuscript in Word format (with embedded figures) |
+| [`supplementary_materials.docx`](supplementary_materials.docx) | Supplementary materials in Word format |
 
 ## Figures
 
 | Figure | Description |
 |--------|-------------|
-| [`figures/figure1_dag.png`](figures/figure1_dag.png) | Causal DAG showing ecDNA as instrumental variable |
-| [`figures/figure2_segregation.png`](figures/figure2_segregation.png) | Validation of ecDNA segregation as random process |
-| [`figures/figure3_iv_estimates.png`](figures/figure3_iv_estimates.png) | IV vs OLS estimates compared to ground truth |
-| [`figures/figure4_spatial.png`](figures/figure4_spatial.png) | Spatial heterogeneity of causal effects |
+| [`figures/figure1_segregation.png`](figures/figure1_segregation.png) | ecDNA segregation validation (binomial distribution) |
+| [`figures/figure2_forest_ols_iv.png`](figures/figure2_forest_ols_iv.png) | Forest plot comparing OLS vs IV estimates |
+| [`figures/figure4_sensitivity.png`](figures/figure4_sensitivity.png) | Sensitivity analysis (Rosenbaum bounds, E-values) |
+| [`figures/figure5_spatial.png`](figures/figure5_spatial.png) | Spatial heterogeneity of causal effects |
+| [`figures/table1_siv_comparison.png`](figures/table1_siv_comparison.png) | Comparison of somatic instrumental variables |
 
 ## Viewing the Manuscript
 

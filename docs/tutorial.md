@@ -169,8 +169,9 @@ python -m causanta.simulate.core --hours 300 --seed 42
 
 This generates a tumor with known causal parameters (set in `default.json`):
 - `ecDNA_effect_on_division` = 0.30 (α)
-- `ecDNA_effect_on_migration` = 0.05 (δ)
 - `ecDNA_effect_on_VEGF` = 0.10 (β)
+- `ecDNA_effect_on_migration` = 0.05 (δ)
+- `ecDNA_effect_on_survival` = 0.50 (γ)
 
 ### Step 2: Load the Data
 
