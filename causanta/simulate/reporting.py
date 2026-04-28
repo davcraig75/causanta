@@ -99,10 +99,14 @@ class SimulationReport:
         output_dir: Path,
         config: SimulationConfig,
         runtime_seconds: float = 0.0,
+        data_dir: Path | None = None,
     ):
         self.output_dir = Path(output_dir)
         self.config = config
         self.runtime_seconds = runtime_seconds
+
+        # Data directory (separate from report output directory)
+        self.data_dir = Path(data_dir) if data_dir else self.output_dir
 
         # Extract parameters for DAG
         tumor_config = config.cell_types.get(6)
@@ -122,13 +126,13 @@ class SimulationReport:
         # Build causal DAG
         self.dag = build_causanta_dag(dag_params)
 
-        # Load data
-        self.summary_data = load_summary_log(self.output_dir / "summary.log")
-        self.lineage_data = load_lineage_tsv(self.output_dir / "lineage.tsv")
+        # Load data from data directory
+        self.summary_data = load_summary_log(self.data_dir / "summary.log")
+        self.lineage_data = load_lineage_tsv(self.data_dir / "lineage.tsv")
 
-        # Find cell snapshot files
-        self.cells_files = sorted(self.output_dir.glob("cells_t*.tsv"))
-        self.env_files = sorted(self.output_dir.glob("environment_t*.tsv"))
+        # Find cell snapshot files in data directory
+        self.cells_files = sorted(self.data_dir.glob("cells_t*.tsv"))
+        self.env_files = sorted(self.data_dir.glob("environment_t*.tsv"))
 
     def generate(self) -> Path:
         """Generate complete HTML report.
@@ -147,7 +151,7 @@ class SimulationReport:
             "base_vegf": tumor_config.VEGF_secretion_amol_hr if tumor_config else 600.0,
             "base_migration": tumor_config.migration_speed_um_hr if tumor_config else 10.0,
         }
-        causal_analysis = run_causal_analysis(self.output_dir, config_params)
+        causal_analysis = run_causal_analysis(self.data_dir, config_params)
 
         # Generate all chart images
         charts = self._generate_charts()
@@ -871,11 +875,11 @@ class SimulationReport:
 
         <h4>Node Types</h4>
         <ul class="legend-list">
-            <li><span class="legend-dot" style="background:#01579b"></span> <strong>Instrument</strong>: ecDNA copy number (randomized by segregation)</li>
-            <li><span class="legend-dot" style="background:#4a148c"></span> <strong>Exposure</strong>: Gene expression levels driven by ecDNA</li>
+            <li><span class="legend-dot" style="background:#2e7d32"></span> <strong>Instrument</strong>: ecDNA copy number (randomized by segregation)</li>
+            <li><span class="legend-dot" style="background:#1565c0"></span> <strong>Exposure</strong>: Gene expression levels driven by ecDNA</li>
             <li><span class="legend-dot" style="background:#e65100"></span> <strong>Mediator</strong>: Intermediate cellular states</li>
-            <li><span class="legend-dot" style="background:#1b5e20"></span> <strong>Outcome</strong>: Observable phenotypes (proliferation, migration)</li>
-            <li><span class="legend-dot" style="background:#b71c1c"></span> <strong>Confounder</strong>: Shared causes (e.g., microenvironment)</li>
+            <li><span class="legend-dot" style="background:#c2185b"></span> <strong>Outcome</strong>: Observable phenotypes (proliferation, migration)</li>
+            <li><span class="legend-dot" style="background:#7b1fa2"></span> <strong>Confounder</strong>: Shared causes (e.g., microenvironment)</li>
         </ul>
 
         <!-- Causal Effect Estimation -->
@@ -1017,16 +1021,18 @@ def generate_report(
     output_dir: Path,
     config: SimulationConfig,
     runtime_seconds: float = 0.0,
+    data_dir: Path | None = None,
 ) -> Path:
     """Generate simulation report.
 
     Args:
-        output_dir: Path to simulation output directory
+        output_dir: Path to write report.html
         config: Simulation configuration
         runtime_seconds: How long the simulation took
+        data_dir: Path to simulation data directory (if different from output_dir)
 
     Returns:
         Path to generated report.html
     """
-    report = SimulationReport(output_dir, config, runtime_seconds)
+    report = SimulationReport(output_dir, config, runtime_seconds, data_dir=data_dir)
     return report.generate()

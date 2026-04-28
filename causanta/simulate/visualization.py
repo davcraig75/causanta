@@ -212,9 +212,52 @@ def write_vega_spec(
     return spec_path
 
 
-def write_html_viewer(output_dir: Path) -> Path:
-    """Write a self-contained HTML file that loads the Vega spec."""
-    html_content = """<!DOCTYPE html>
+def write_html_viewer(output_dir: Path, vega_spec: dict | None = None) -> Path:
+    """Write a self-contained HTML file with embedded Vega-Lite spec.
+
+    Args:
+        output_dir: Directory to write index.html
+        vega_spec: Optional Vega-Lite spec dict to embed inline.
+                   If None, falls back to loading from external file (not recommended).
+    """
+    if vega_spec is not None:
+        # Embed spec inline for truly self-contained HTML (works with file:// protocol)
+        spec_json = json.dumps(vega_spec)
+        html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>CAUSANTA Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <style>
+        body {{ font-family: sans-serif; margin: 20px; background: #1a1a2e; color: #eee; }}
+        h1 {{ color: #e94560; }}
+        #vis {{ background: #16213e; padding: 10px; border-radius: 8px; }}
+        .loading {{ color: #888; font-style: italic; }}
+    </style>
+</head>
+<body>
+    <h1>CAUSANTA Tissue Simulation</h1>
+    <div id="vis"><p class="loading">Loading visualization...</p></div>
+    <script>
+        const spec = {spec_json};
+        vegaEmbed('#vis', spec, {{
+            theme: 'dark',
+            actions: {{ export: true, source: true, editor: true }}
+        }}).then(function(result) {{
+            console.log('Visualization rendered successfully');
+        }}).catch(function(error) {{
+            document.getElementById('vis').innerHTML =
+                '<p style="color: #e94560;">Error: ' + error.message + '</p>';
+            console.error(error);
+        }});
+    </script>
+</body>
+</html>"""
+    else:
+        # Fallback to external file reference (requires web server)
+        html_content = """<!DOCTYPE html>
 <html>
 <head>
     <title>CAUSANTA Visualization</title>

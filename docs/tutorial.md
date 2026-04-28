@@ -223,12 +223,12 @@ print(f"True effect: 0.05")  # From simulation parameters
 
 ### Step 5: Compare to Ground Truth
 
-| Method | Estimate | True Value | Error |
-|--------|----------|------------|-------|
-| OLS | ~0.12 | 0.05 | 140% |
-| 2SLS | ~0.05 | 0.05 | <5% |
+| Method | Estimate | True Value | Bias |
+|--------|----------|------------|------|
+| OLS | ~0.063 | 0.05 | +27% |
+| 2SLS | ~0.054 | 0.05 | +8% |
 
-The 2SLS estimate should be much closer to the true value!
+The 2SLS estimate is much closer to the true value! For VEGF secretion (β), the contrast is even starker: OLS overestimates by +117% while IV is only +9% biased.
 
 ---
 

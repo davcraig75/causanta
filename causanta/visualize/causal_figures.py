@@ -293,7 +293,7 @@ def plot_iv_estimates(
     outcome_labels = ["Division (α)", "VEGF (β)", "Migration (δ)", "Survival (γ)"]
 
     if ground_truth is None:
-        ground_truth = {"alpha": 0.30, "beta": 0.10, "delta": 0.05, "gamma": 0.20}
+        ground_truth = {"alpha": 0.30, "beta": 0.10, "delta": 0.05, "gamma": 0.50}
 
     true_effects = [ground_truth["alpha"], ground_truth["beta"],
                     ground_truth["delta"], ground_truth["gamma"]]

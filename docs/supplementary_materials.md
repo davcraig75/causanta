@@ -58,7 +58,7 @@ O2_i (unobserved common cause) → Y_i (outcomes)
 | α | ecDNA_effect_on_division | 0.30 | 30% faster division per doubling of ecDNA |
 | β | ecDNA_effect_on_VEGF | 0.10 | 10% more VEGF per sqrt(EGFR) unit |
 | δ | ecDNA_effect_on_migration | 0.05 | 5% faster migration per EGFR unit |
-| γ | ecDNA_effect_on_survival | 0.20 | 20% survival boost per ecDNA copy |
+| γ | ecDNA_effect_on_survival | 0.50 | 50% survival boost per ecDNA copy |
 
 ### 1.3 Causal DAG
 
@@ -257,7 +257,7 @@ MDE = (z_{1-α/2} + z_{1-β}) * SE_IV
 | 0.10 | ~100 | ~150 |
 | 0.20 | ~25 | ~40 |
 
-*(Assuming R²_first = 0.85, α = 0.05)*
+*(Assuming R²_first = 0.885, α = 0.05)*
 
 ---
 
@@ -402,16 +402,16 @@ Threshold: edges with stability > 0.5 are retained.
 
 | Parameter | Default Value | Description |
 |-----------|---------------|-------------|
-| width_um | 1000 | Domain width (μm) |
-| height_um | 1000 | Domain height (μm) |
+| width_um | 2000 | Domain width (μm) |
+| height_um | 2000 | Domain height (μm) |
 | dx_um | 10 | Grid spacing (μm) |
 
 ### 8.2 Time Configuration
 
 | Parameter | Default Value | Description |
 |-----------|---------------|-------------|
-| dt_hr | 0.5 | Time step (hours) |
-| total_hours | 200 | Simulation duration |
+| dt_hr | 1.0 | Time step (hours) |
+| total_hours | 300 | Simulation duration |
 | output_every_hr | 1.0 | Output frequency |
 
 ### 8.3 Cell Type Parameters

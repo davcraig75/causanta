@@ -286,7 +286,7 @@ These are the **true causal effects** embedded in the simulation. Your analysis 
 | `ecDNA_effect_on_division` | α | 0.30 | T_eff = T_base / (1 + α·log₂(1+ecDNA)) | 30% faster division per ecDNA doubling |
 | `ecDNA_effect_on_VEGF` | β | 0.10 | S_eff = S_base · (1 + β·ecDNA) | 10% more VEGF per ecDNA copy |
 | `ecDNA_effect_on_migration` | δ | 0.05 | v_eff = v_base · (1 + δ·ecDNA) | 5% faster migration per ecDNA copy |
-| `ecDNA_effect_on_survival` | γ | 0.20 | a_eff = a_base / (1 + γ·ecDNA) | 20% survival boost per ecDNA copy |
+| `ecDNA_effect_on_survival` | γ | 0.50 | a_eff = a_base / (1 + γ·ecDNA) | 50% survival boost per ecDNA copy |
 
 ### ecDNA Segregation Parameters
 
@@ -323,6 +323,7 @@ pip install -e .
 
 ```bash
 # Default: 1mm x 1mm domain, 168 hours
+# Paper config: 6mm x 6mm domain, 300 hours
 python -m causanta.simulate.core
 
 # Custom duration
