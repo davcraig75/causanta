@@ -1,0 +1,1762 @@
+[
+  {
+    "run": "run_20260428_095737",
+    "n_tumor": 44400,
+    "hypoxic_frac": 0.9610585585585586,
+    "corr_O2_EGFR": 0.0004215963569744277,
+    "pc": {
+      "true_positives": 5,
+      "false_positives": 4,
+      "false_negatives": 1,
+      "precision": 0.5555555555555556,
+      "recall": 0.8333333333333334,
+      "f1_score": 0.6666666666666667,
+      "structural_hamming_distance": 5,
+      "discovered_edges": [
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "glucose_local",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ],
+        [
+          "egfr_expression",
+          "glucose_local"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "O2_local",
+          "egfr_expression"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "O2_local",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "glucose_local",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "glucose_local"
+        ]
+      ]
+    },
+    "ges": {
+      "true_positives": 2,
+      "false_positives": 12,
+      "false_negatives": 4,
+      "precision": 0.14285714285714285,
+      "recall": 0.3333333333333333,
+      "f1_score": 0.2,
+      "structural_hamming_distance": 16,
+      "discovered_edges": [
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "migration_rate",
+          "glucose_local"
+        ],
+        [
+          "VEGF_secretion",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "glucose_local",
+          "VEGF_secretion"
+        ],
+        [
+          "migration_rate",
+          "VEGF_secretion"
+        ],
+        [
+          "VEGF_secretion",
+          "ecDNA_count"
+        ],
+        [
+          "O2_local",
+          "ecDNA_count"
+        ],
+        [
+          "egfr_expression",
+          "ecDNA_count"
+        ],
+        [
+          "O2_local",
+          "glucose_local"
+        ],
+        [
+          "glucose_local",
+          "egfr_expression"
+        ],
+        [
+          "migration_rate",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ],
+        [
+          "migration_rate",
+          "O2_local"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "migration_rate",
+          "glucose_local"
+        ],
+        [
+          "VEGF_secretion",
+          "egfr_expression"
+        ],
+        [
+          "glucose_local",
+          "VEGF_secretion"
+        ],
+        [
+          "migration_rate",
+          "VEGF_secretion"
+        ],
+        [
+          "VEGF_secretion",
+          "ecDNA_count"
+        ],
+        [
+          "O2_local",
+          "ecDNA_count"
+        ],
+        [
+          "egfr_expression",
+          "ecDNA_count"
+        ],
+        [
+          "O2_local",
+          "glucose_local"
+        ],
+        [
+          "glucose_local",
+          "egfr_expression"
+        ],
+        [
+          "migration_rate",
+          "egfr_expression"
+        ],
+        [
+          "migration_rate",
+          "O2_local"
+        ]
+      ]
+    }
+  },
+  {
+    "run": "run_20260429_054341",
+    "n_tumor": 2950,
+    "hypoxic_frac": 0.8284745762711865,
+    "corr_O2_EGFR": -0.2654021629508637,
+    "pc": {
+      "true_positives": 3,
+      "false_positives": 2,
+      "false_negatives": 3,
+      "precision": 0.6,
+      "recall": 0.5,
+      "f1_score": 0.5454545454545454,
+      "structural_hamming_distance": 5,
+      "discovered_edges": [
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ]
+      ]
+    },
+    "ges": {
+      "true_positives": 1,
+      "false_positives": 8,
+      "false_negatives": 5,
+      "precision": 0.1111111111111111,
+      "recall": 0.16666666666666666,
+      "f1_score": 0.13333333333333333,
+      "structural_hamming_distance": 13,
+      "discovered_edges": [
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "migration_rate",
+          "glucose_local"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "VEGF_secretion",
+          "egfr_expression"
+        ],
+        [
+          "VEGF_secretion",
+          "ecDNA_count"
+        ],
+        [
+          "egfr_expression",
+          "ecDNA_count"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "VEGF_secretion",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "migration_rate",
+          "glucose_local"
+        ],
+        [
+          "VEGF_secretion",
+          "egfr_expression"
+        ],
+        [
+          "VEGF_secretion",
+          "ecDNA_count"
+        ],
+        [
+          "egfr_expression",
+          "ecDNA_count"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "VEGF_secretion",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ]
+      ]
+    }
+  },
+  {
+    "run": "run_20260429_054546",
+    "n_tumor": 1952,
+    "hypoxic_frac": 0.7243852459016393,
+    "corr_O2_EGFR": -0.28711681142993317,
+    "pc": {
+      "true_positives": 3,
+      "false_positives": 2,
+      "false_negatives": 3,
+      "precision": 0.6,
+      "recall": 0.5,
+      "f1_score": 0.5454545454545454,
+      "structural_hamming_distance": 5,
+      "discovered_edges": [
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ]
+      ]
+    },
+    "ges": {
+      "true_positives": 2,
+      "false_positives": 7,
+      "false_negatives": 4,
+      "precision": 0.2222222222222222,
+      "recall": 0.3333333333333333,
+      "f1_score": 0.26666666666666666,
+      "structural_hamming_distance": 11,
+      "discovered_edges": [
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "migration_rate",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "migration_rate",
+          "VEGF_secretion"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ],
+        [
+          "migration_rate",
+          "egfr_expression"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "migration_rate",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "migration_rate",
+          "VEGF_secretion"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "migration_rate",
+          "egfr_expression"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ]
+      ]
+    }
+  },
+  {
+    "run": "run_20260429_054722",
+    "n_tumor": 2437,
+    "hypoxic_frac": 0.8042675420599097,
+    "corr_O2_EGFR": -0.26904434788515774,
+    "pc": {
+      "true_positives": 3,
+      "false_positives": 2,
+      "false_negatives": 3,
+      "precision": 0.6,
+      "recall": 0.5,
+      "f1_score": 0.5454545454545454,
+      "structural_hamming_distance": 5,
+      "discovered_edges": [
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ]
+      ]
+    },
+    "ges": {
+      "true_positives": 2,
+      "false_positives": 11,
+      "false_negatives": 4,
+      "precision": 0.15384615384615385,
+      "recall": 0.3333333333333333,
+      "f1_score": 0.21052631578947367,
+      "structural_hamming_distance": 15,
+      "discovered_edges": [
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "migration_rate",
+          "glucose_local"
+        ],
+        [
+          "VEGF_secretion",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "VEGF_secretion",
+          "O2_local"
+        ],
+        [
+          "migration_rate",
+          "VEGF_secretion"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ],
+        [
+          "migration_rate",
+          "egfr_expression"
+        ],
+        [
+          "ecDNA_count",
+          "O2_local"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ],
+        [
+          "migration_rate",
+          "O2_local"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "migration_rate",
+          "glucose_local"
+        ],
+        [
+          "VEGF_secretion",
+          "egfr_expression"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "VEGF_secretion",
+          "O2_local"
+        ],
+        [
+          "migration_rate",
+          "VEGF_secretion"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "migration_rate",
+          "egfr_expression"
+        ],
+        [
+          "ecDNA_count",
+          "O2_local"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ],
+        [
+          "migration_rate",
+          "O2_local"
+        ]
+      ]
+    }
+  },
+  {
+    "run": "run_20260429_054855",
+    "n_tumor": 2618,
+    "hypoxic_frac": 0.8048128342245989,
+    "corr_O2_EGFR": -0.2588279379570608,
+    "pc": {
+      "true_positives": 3,
+      "false_positives": 4,
+      "false_negatives": 3,
+      "precision": 0.42857142857142855,
+      "recall": 0.5,
+      "f1_score": 0.4615384615384615,
+      "structural_hamming_distance": 7,
+      "discovered_edges": [
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "VEGF_secretion"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "VEGF_secretion"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ]
+      ]
+    },
+    "ges": {
+      "true_positives": 1,
+      "false_positives": 8,
+      "false_negatives": 5,
+      "precision": 0.1111111111111111,
+      "recall": 0.16666666666666666,
+      "f1_score": 0.13333333333333333,
+      "structural_hamming_distance": 13,
+      "discovered_edges": [
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "VEGF_secretion",
+          "egfr_expression"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "migration_rate",
+          "VEGF_secretion"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ],
+        [
+          "egfr_expression",
+          "glucose_local"
+        ],
+        [
+          "migration_rate",
+          "egfr_expression"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "VEGF_secretion",
+          "egfr_expression"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "migration_rate",
+          "VEGF_secretion"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "egfr_expression",
+          "glucose_local"
+        ],
+        [
+          "migration_rate",
+          "egfr_expression"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ]
+      ]
+    }
+  },
+  {
+    "run": "run_20260429_055030",
+    "n_tumor": 1675,
+    "hypoxic_frac": 0.7116417910447761,
+    "corr_O2_EGFR": -0.2608471113467797,
+    "pc": {
+      "true_positives": 2,
+      "false_positives": 6,
+      "false_negatives": 4,
+      "precision": 0.25,
+      "recall": 0.3333333333333333,
+      "f1_score": 0.28571428571428575,
+      "structural_hamming_distance": 10,
+      "discovered_edges": [
+        [
+          "ecDNA_count",
+          "glucose_local"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "VEGF_secretion",
+          "egfr_expression"
+        ],
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "ecDNA_count"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ],
+        [
+          "VEGF_secretion",
+          "migration_rate"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "ecDNA_count",
+          "glucose_local"
+        ],
+        [
+          "VEGF_secretion",
+          "egfr_expression"
+        ],
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "ecDNA_count"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "VEGF_secretion",
+          "migration_rate"
+        ]
+      ]
+    },
+    "ges": {
+      "true_positives": 1,
+      "false_positives": 9,
+      "false_negatives": 5,
+      "precision": 0.1,
+      "recall": 0.16666666666666666,
+      "f1_score": 0.125,
+      "structural_hamming_distance": 14,
+      "discovered_edges": [
+        [
+          "migration_rate",
+          "glucose_local"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "VEGF_secretion",
+          "egfr_expression"
+        ],
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "VEGF_secretion",
+          "ecDNA_count"
+        ],
+        [
+          "egfr_expression",
+          "ecDNA_count"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "O2_local"
+        ],
+        [
+          "VEGF_secretion",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "migration_rate",
+          "glucose_local"
+        ],
+        [
+          "VEGF_secretion",
+          "egfr_expression"
+        ],
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "VEGF_secretion",
+          "ecDNA_count"
+        ],
+        [
+          "egfr_expression",
+          "ecDNA_count"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "O2_local"
+        ],
+        [
+          "VEGF_secretion",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ]
+      ]
+    }
+  },
+  {
+    "run": "run_20260429_055157",
+    "n_tumor": 3324,
+    "hypoxic_frac": 0.8640192539109507,
+    "corr_O2_EGFR": -0.23009401974990368,
+    "pc": {
+      "true_positives": 3,
+      "false_positives": 2,
+      "false_negatives": 3,
+      "precision": 0.6,
+      "recall": 0.5,
+      "f1_score": 0.5454545454545454,
+      "structural_hamming_distance": 5,
+      "discovered_edges": [
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ]
+      ]
+    },
+    "ges": {
+      "true_positives": 2,
+      "false_positives": 7,
+      "false_negatives": 4,
+      "precision": 0.2222222222222222,
+      "recall": 0.3333333333333333,
+      "f1_score": 0.26666666666666666,
+      "structural_hamming_distance": 11,
+      "discovered_edges": [
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "VEGF_secretion"
+        ],
+        [
+          "VEGF_secretion",
+          "ecDNA_count"
+        ],
+        [
+          "egfr_expression",
+          "ecDNA_count"
+        ],
+        [
+          "glucose_local",
+          "egfr_expression"
+        ],
+        [
+          "VEGF_secretion",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "glucose_local",
+          "VEGF_secretion"
+        ],
+        [
+          "VEGF_secretion",
+          "ecDNA_count"
+        ],
+        [
+          "egfr_expression",
+          "ecDNA_count"
+        ],
+        [
+          "glucose_local",
+          "egfr_expression"
+        ],
+        [
+          "VEGF_secretion",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ]
+      ]
+    }
+  },
+  {
+    "run": "run_20260429_055348",
+    "n_tumor": 2027,
+    "hypoxic_frac": 0.7710902812037493,
+    "corr_O2_EGFR": -0.3075788488147736,
+    "pc": {
+      "true_positives": 3,
+      "false_positives": 4,
+      "false_negatives": 3,
+      "precision": 0.42857142857142855,
+      "recall": 0.5,
+      "f1_score": 0.4615384615384615,
+      "structural_hamming_distance": 7,
+      "discovered_edges": [
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "VEGF_secretion"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "VEGF_secretion"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ]
+      ]
+    },
+    "ges": {
+      "true_positives": 2,
+      "false_positives": 7,
+      "false_negatives": 4,
+      "precision": 0.2222222222222222,
+      "recall": 0.3333333333333333,
+      "f1_score": 0.26666666666666666,
+      "structural_hamming_distance": 11,
+      "discovered_edges": [
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "migration_rate",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "migration_rate",
+          "VEGF_secretion"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ],
+        [
+          "migration_rate",
+          "egfr_expression"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "migration_rate",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "migration_rate",
+          "VEGF_secretion"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "migration_rate",
+          "egfr_expression"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ]
+      ]
+    }
+  },
+  {
+    "run": "run_20260429_055513",
+    "n_tumor": 2127,
+    "hypoxic_frac": 0.7889045604137283,
+    "corr_O2_EGFR": -0.2574405775889148,
+    "pc": {
+      "true_positives": 3,
+      "false_positives": 2,
+      "false_negatives": 3,
+      "precision": 0.6,
+      "recall": 0.5,
+      "f1_score": 0.5454545454545454,
+      "structural_hamming_distance": 5,
+      "discovered_edges": [
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ]
+      ]
+    },
+    "ges": {
+      "true_positives": 2,
+      "false_positives": 9,
+      "false_negatives": 4,
+      "precision": 0.18181818181818182,
+      "recall": 0.3333333333333333,
+      "f1_score": 0.23529411764705885,
+      "structural_hamming_distance": 13,
+      "discovered_edges": [
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "migration_rate",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "migration_rate",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "O2_local"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ],
+        [
+          "migration_rate",
+          "egfr_expression"
+        ],
+        [
+          "ecDNA_count",
+          "O2_local"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "migration_rate",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "migration_rate",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "O2_local"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "migration_rate",
+          "egfr_expression"
+        ],
+        [
+          "ecDNA_count",
+          "O2_local"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ]
+      ]
+    }
+  },
+  {
+    "run": "run_20260429_055640",
+    "n_tumor": 2050,
+    "hypoxic_frac": 0.7580487804878049,
+    "corr_O2_EGFR": -0.3101508580392719,
+    "pc": {
+      "true_positives": 3,
+      "false_positives": 2,
+      "false_negatives": 3,
+      "precision": 0.6,
+      "recall": 0.5,
+      "f1_score": 0.5454545454545454,
+      "structural_hamming_distance": 5,
+      "discovered_edges": [
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "ecDNA_count",
+          "migration_rate"
+        ],
+        [
+          "glucose_local",
+          "migration_rate"
+        ]
+      ]
+    },
+    "ges": {
+      "true_positives": 2,
+      "false_positives": 7,
+      "false_negatives": 4,
+      "precision": 0.2222222222222222,
+      "recall": 0.3333333333333333,
+      "f1_score": 0.26666666666666666,
+      "structural_hamming_distance": 11,
+      "discovered_edges": [
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "migration_rate",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "migration_rate",
+          "VEGF_secretion"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ],
+        [
+          "migration_rate",
+          "egfr_expression"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ]
+      ],
+      "missed_edges": [
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "egfr_expression"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ]
+      ],
+      "extra_edges": [
+        [
+          "migration_rate",
+          "ecDNA_count"
+        ],
+        [
+          "migration_rate",
+          "glucose_local"
+        ],
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "migration_rate",
+          "VEGF_secretion"
+        ],
+        [
+          "VEGF_secretion",
+          "glucose_local"
+        ],
+        [
+          "migration_rate",
+          "egfr_expression"
+        ],
+        [
+          "glucose_local",
+          "O2_local"
+        ]
+      ]
+    }
+  }
+]
