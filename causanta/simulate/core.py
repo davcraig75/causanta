@@ -57,6 +57,7 @@ from .initialization import (
     populate_normal_tissue,
     seed_tumor,
 )
+from .cleanup import cleanup_data_keep_final_only, compress_movie_html
 from .io import (
     copy_params_json,
     create_output_directory,
@@ -507,6 +508,22 @@ def main() -> None:
         default=None,
         help="Override RNG seed",
     )
+    parser.add_argument(
+        "--keep-all-snapshots",
+        action="store_true",
+        help=(
+            "Keep every per-hour cells_t*/environment_t* TSV. "
+            "Default: only the final timestep is retained at end of run."
+        ),
+    )
+    parser.add_argument(
+        "--no-compress-movie",
+        action="store_true",
+        help=(
+            "Skip end-of-run gzip of reports/movie.html. "
+            "Default: movie.html is replaced by movie.html.gz."
+        ),
+    )
     args = parser.parse_args()
 
     # Determine config path
@@ -543,6 +560,24 @@ def main() -> None:
 
     try:
         sim.run()
+
+        # Post-run space optimisation. Movie compression first (its input is the
+        # untouched movie.html); snapshot cleanup second. Both run after every
+        # downstream artifact (movie, viewer, report) has been generated, so
+        # they only affect on-disk persistence, not the simulation results.
+        if sim.output_dir is not None:
+            reports_dir = sim.output_dir / "reports"
+            if not reports_dir.exists():
+                reports_dir = sim.output_dir
+            data_dir = sim.output_dir / "data"
+            if not data_dir.exists():
+                data_dir = sim.output_dir
+
+            if not args.no_compress_movie:
+                compress_movie_html(reports_dir / "movie.html")
+
+            if not args.keep_all_snapshots:
+                cleanup_data_keep_final_only(data_dir)
     finally:
         # Clean up temp config file
         if tmp_path is not None:

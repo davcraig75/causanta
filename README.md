@@ -613,6 +613,28 @@ Please finalize my session with the following steps:
 
 ## Change Log
 
+### 2026-04-29 (afternoon)
+
+**End-of-run disk reduction**
+
+- **Added:** `cleanup_data_keep_final_only(data_dir)` and `compress_movie_html(movie_path)` in `causanta/simulate/cleanup.py`. Run automatically after `sim.run()` returns from `python -m causanta.simulate.core`.
+- **Behavior change:** Default end-of-run state now keeps only the *final* `cells_tNNNNNN.tsv` and `environment_tNNNNNN.tsv` in the run's `data/` directory; all per-hour intermediate snapshots are deleted after movie/report generation has consumed them. `lineage.tsv`, `summary.log`, `params.json`, and other metadata are untouched.
+- **Behavior change:** Default end-of-run state now replaces `reports/movie.html` with a gzipped `reports/movie.html.gz` (typically 10–25% of the original size). Decompress before viewing: `gunzip movie.html.gz; open movie.html`.
+- **CLI:** New flags `--keep-all-snapshots` and `--no-compress-movie` opt out of each step independently.
+- **Smoke-tested:** 10-hour 0.5 mm sim verified that final-timestep TSVs survive, intermediates are removed, opt-out flags preserve full output.
+
+### 2026-04-29
+
+**Causal discovery scoring methodology and multi-seed reliability check**
+
+- **Added:** `scripts/discovery_sweep.py` — sweeps PC α and GES penalty against a defensible 6-edge projected ground-truth DAG (adds the previously omitted O2 → EGFR edge from HIF-1α upregulation), with optional bootstrap edge stability.
+- **Added:** `scripts/discovery_multiseed_aggregate.py` — runs PC/GES across multiple seeds and reports mean ± SD of (F1, precision, recall, SHD).
+- **Updated:** `docs/manuscript/manuscript.md` — *Causal Discovery: Recovering Graph Structure* section. Replaced placeholder F1 = 0.60 with measured F1 = 0.667 on the 6 mm publication run (recall 5 of 6 mechanistic edges) and F1 = 0.52 ± 0.09 across 10 1 mm × 168 hr seeds. Added explicit treatment of:
+  - Why O2 → EGFR is undetectable on the 6 mm run (96% of tumor cells hypoxic → HIF indicator saturated → corr(O2, EGFR) = 0.000)
+  - Why glucose-related "extra" edges are real spatial correlations through unobserved vascular density, not algorithmic errors
+  - Why score-based GES (F1 = 0.21 ± 0.06) underperforms PC at large n (BIC penalty saturation)
+- **Verified:** Multi-seed reliability run with 10 seeds × 1 mm × 168 hr (~13 min wall time). Per-seed metrics archived in `output/multiseed_discovery.json` (gitignored).
+
 ### 2026-04-28
 
 **Documentation alignment with 6mm publication run; manuscript figure refresh**

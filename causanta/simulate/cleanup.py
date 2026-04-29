@@ -6,9 +6,19 @@ key snapshots for analysis and visualization.
 
 from __future__ import annotations
 
+import gzip
 import re
+import shutil
 from pathlib import Path
 from typing import Callable
+
+
+_TIMESTEP_RE = re.compile(r"t(\d+)")
+
+
+def _extract_time(path: Path) -> int:
+    m = _TIMESTEP_RE.search(path.stem)
+    return int(m.group(1)) if m else 0
 
 
 def cleanup_simulation_outputs(
@@ -115,6 +125,108 @@ def cleanup_simulation_outputs(
         print(f"  Space freed: {stats['bytes_freed'] / 1024 / 1024:.1f} MB")
 
     return stats
+
+
+def cleanup_data_keep_final_only(
+    data_dir: Path,
+    dry_run: bool = False,
+    verbose: bool = True,
+) -> dict[str, int]:
+    """Remove all per-hour cells_t*/environment_t* TSVs except the final timestep.
+
+    Preserves: lineage.tsv, summary.log, params.json, the final cells_tNNNNNN.tsv,
+    and the final environment_tNNNNNN.tsv. Designed to be called once at the end
+    of a simulation run, after all visualisations/movies/reports have been
+    generated from the full snapshot series.
+    """
+    stats = {
+        "cells_kept": 0,
+        "cells_deleted": 0,
+        "env_kept": 0,
+        "env_deleted": 0,
+        "bytes_freed": 0,
+    }
+
+    cells_files = sorted(data_dir.glob("cells_t*.tsv"))
+    env_files = sorted(data_dir.glob("environment_t*.tsv"))
+
+    if not cells_files and not env_files:
+        if verbose:
+            print(f"  Cleanup: no cells_t*.tsv / environment_t*.tsv in {data_dir}")
+        return stats
+
+    last_cell_t = max((_extract_time(f) for f in cells_files), default=None)
+    last_env_t = max((_extract_time(f) for f in env_files), default=None)
+
+    for f in cells_files:
+        if _extract_time(f) == last_cell_t:
+            stats["cells_kept"] += 1
+        else:
+            stats["bytes_freed"] += f.stat().st_size
+            if not dry_run:
+                f.unlink()
+            stats["cells_deleted"] += 1
+
+    for f in env_files:
+        if _extract_time(f) == last_env_t:
+            stats["env_kept"] += 1
+        else:
+            stats["bytes_freed"] += f.stat().st_size
+            if not dry_run:
+                f.unlink()
+            stats["env_deleted"] += 1
+
+    if verbose:
+        action = "Would delete" if dry_run else "Deleted"
+        mb = stats["bytes_freed"] / 1024 / 1024
+        print(
+            f"  Cleanup (final-only): {action} {stats['cells_deleted']} cells + "
+            f"{stats['env_deleted']} environment intermediate TSVs; freed {mb:.1f} MB"
+        )
+
+    return stats
+
+
+def compress_movie_html(
+    movie_path: Path,
+    dry_run: bool = False,
+    verbose: bool = True,
+) -> Path | None:
+    """Gzip movie.html in place: writes movie.html.gz, removes the original.
+
+    Returns the path of the compressed file, or None if the source did not exist.
+    Browsers won't open .html.gz directly; the helper prints the gunzip incantation.
+    """
+    if not movie_path.exists():
+        if verbose:
+            print(f"  No movie file to compress at {movie_path}")
+        return None
+
+    out_path = movie_path.with_name(movie_path.name + ".gz")
+    original_size = movie_path.stat().st_size
+
+    if dry_run:
+        if verbose:
+            print(f"  Would compress {movie_path.name} -> {out_path.name}")
+        return out_path
+
+    with movie_path.open("rb") as f_in, gzip.open(out_path, "wb", compresslevel=6) as f_out:
+        shutil.copyfileobj(f_in, f_out)
+
+    compressed_size = out_path.stat().st_size
+    movie_path.unlink()
+
+    if verbose:
+        ratio = (compressed_size / original_size * 100) if original_size > 0 else 0
+        orig_mb = original_size / 1024 / 1024
+        comp_mb = compressed_size / 1024 / 1024
+        print(
+            f"  Compressed movie: {orig_mb:.1f} MB -> {comp_mb:.1f} MB "
+            f"({ratio:.0f}% of original)"
+        )
+        print(f"    To view: gunzip {out_path}; open {movie_path.name}")
+
+    return out_path
 
 
 def organize_output_directory(
