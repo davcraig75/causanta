@@ -101,7 +101,17 @@ class Simulation:
         print()
 
         # Create output directory
-        self.output_dir = create_output_directory()
+        if self.config.output_dir:
+            # Use explicit output directory from config
+            self.output_dir = Path(self.config.output_dir)
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+            # Create subdirectories
+            (self.output_dir / "data").mkdir(exist_ok=True)
+            (self.output_dir / "figures").mkdir(exist_ok=True)
+            (self.output_dir / "reports").mkdir(exist_ok=True)
+            (self.output_dir / "animations").mkdir(exist_ok=True)
+        else:
+            self.output_dir = create_output_directory()
         copy_params_json(self.config_path, self.output_dir)
         print(f"  Output: {self.output_dir}")
         print()
@@ -295,7 +305,10 @@ class Simulation:
 
             # a. Sample local environment
             sample_environment(cell, self.env, self.domain, hypoxia_thresh)
-            update_effective_rates(cell, tp, self.rng)
+            update_effective_rates(
+                cell, tp, self.rng,
+                egfr_hypoxia_upregulation=self.config.environment.egfr_hypoxia_upregulation,
+            )
 
             # b. Death checks
             # Necrosis

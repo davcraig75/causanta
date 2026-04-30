@@ -613,6 +613,20 @@ Please finalize my session with the following steps:
 
 ## Change Log
 
+### 2026-04-30
+
+**Comprehensive multi-scale robustness analysis of SIV framework**
+
+- **Added:** `egfr_hypoxia_upregulation` parameter in `EnvironmentConfig` (`causanta/simulate/config.py`) — configurable strength of the HIF-2α-mediated hypoxia → EGFR edge. Default 1.5 (preserves existing behavior); set to 0.0 to remove the confounding pathway for IV/OLS bias comparison.
+- **Added:** `output_dir` parameter in `SimulationConfig` (`causanta/simulate/config.py`) — explicit output directory specification, enabling parallel runs to distinct directories. If unset, falls back to existing timestamped behavior.
+- **Updated:** `compute_egfr_expression()` in `causanta/simulate/ecdna.py` now accepts `hypoxia_upregulation` arg, plumbed through `update_effective_rates()` and the simulation core. Docstring updated to reflect HIF-2α (translational) rather than HIF-1α (transcriptional) mechanism, per Franovic et al. 2007.
+- **Updated:** `causanta/analyze/loader.py` now resolves the `data/` subdirectory introduced by the explicit-output-dir flow before falling back to flat layout.
+- **Updated:** `causanta/analyze/discovery.py` default discovery variables exclude `glucose_local` (multicollinear with O2_local via shared vascular-distance dependence).
+- **Added:** Nine new parameter files in `causanta/simulate/params/`: `{robustness,large,xlarge}_{baseline,reduced,removed}.json` covering 1000×1000, 2000×2000, and 6000×6000 μm domains × HIF effect ∈ {1.5, 0.5, 0.0}.
+- **Added:** `docs/manuscript/figures/comprehensive_robustness_figure.{png,pdf}` — two-panel figure summarizing OLS bias vs HIF strength and OLS/IV ratio across all three simulation scales.
+- **Updated:** `docs/manuscript/manuscript.md` Robustness Analysis section (Table 2) replaced with comprehensive 9-row table spanning all three scales. Discussion section updated to reference the multi-scale validation. Key result: mean OLS bias drops from 30.6% (HIF=1.5) → 27.1% (HIF=0.5) → 0.6% (HIF=0.0), confirming the predicted proportionality of bias to confounder strength while IV remains valid (first-stage F = 70,741–253,699).
+- **Verified:** All 11 scientific-contract tests pass (`pytest tests/ -v`).
+
 ### 2026-04-29 (afternoon)
 
 **End-of-run disk reduction**

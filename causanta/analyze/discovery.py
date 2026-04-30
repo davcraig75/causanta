@@ -368,11 +368,14 @@ def discover_causal_structure(
         DiscoveredDAG with discovered structure.
     """
     if variables is None:
+        # Note: glucose_local excluded as it's highly correlated with O2_local
+        # (both determined by vascular distance) and causes multicollinearity
+        # that confuses the PC algorithm. O2 is the biologically relevant
+        # variable for hypoxia-driven phenotypes.
         variables = [
             "ecDNA_count",
             "egfr_expression",
             "O2_local",
-            "glucose_local",
             "VEGF_secretion",
             "migration_rate",
         ]

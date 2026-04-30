@@ -43,16 +43,17 @@ def compute_egfr_expression(
     is_hypoxic: bool = False,
     rng: np.random.Generator | None = None,
     include_noise: bool = True,
+    hypoxia_upregulation: float | None = None,
 ) -> float:
     """Compute EGFR expression level from ecDNA copy number and hypoxia.
 
     The causal chain is:
         ecDNA_count (Z)  -> EGFR_mRNA -> EGFR_protein (X)
-        hypoxia     (M)  -> HIF-1alpha -> EGFR_mRNA  (additional endogenous driver)
+        hypoxia     (M)  -> HIF-2alpha -> EGFR_protein (additional endogenous driver)
 
     Gene dosage models additional EGFR transcripts from amplified copies on
-    ecDNA; HIF-1alpha models hypoxia-induced upregulation of the chromosomal
-    EGFR promoter. Both act on the mRNA pool; protein level is proportional.
+    ecDNA. The hypoxia effect models translational upregulation of EGFR under
+    hypoxia, as shown by Franovic et al. (2007) to be mediated by HIF-2alpha.
 
     Formula:
         EGFR = [base + kappa * ecDNA_count] * [1 + kappa_hyp * is_hypoxic] * noise
@@ -62,35 +63,41 @@ def compute_egfr_expression(
     The hypoxia term is what makes EGFR endogenous w.r.t. the hypoxia
     confounder M. Without it, corr(EGFR, is_hypoxic) = 0 and IV has no
     omitted-variable bias to correct -- because the 'confounder' doesn't
-    co-vary with the exposure.
+    co-vary with the exposure. The strength of this effect can be varied
+    for robustness analysis.
 
     Args:
         ecDNA_count: Number of ecDNA copies carrying EGFR
         is_hypoxic: Whether the cell is in a hypoxic microenvironment
         rng: Random number generator for noise (None = no noise)
         include_noise: Whether to add transcriptional noise
+        hypoxia_upregulation: Fractional boost under hypoxia (default: 1.5 for 2.5x).
+                              Set to 0 to remove hypoxia effect on EGFR.
 
     Returns:
         EGFR expression level (arbitrary units, ~1.0 for normal cells)
 
-    Example (at ecDNA=20, kappa_hyp=1.5):
-        normoxic:  EGFR ~ 1 + 0.5*20 = 11.0
-        hypoxic:   EGFR ~ (1 + 0.5*20) * 2.5 = 27.5
+    Example (at ecDNA=20, hypoxia_upregulation=1.5):
+        normoxic:  EGFR ~ 2.89 + 1.21*20 = 27.1
+        hypoxic:   EGFR ~ (2.89 + 1.21*20) * 2.5 = 67.8
 
     References:
         Hung et al. (2021) Nature: ecDNA forms transcriptional hubs
         Franovic et al. (2007) PNAS: HIF-2alpha regulates EGFR translation
-        Peng et al. (2006) Mol Cell Biol: HIF-1alpha induces EGFR transcription
     """
+    # Use default if not specified
+    if hypoxia_upregulation is None:
+        hypoxia_upregulation = EGFR_HYPOXIA_UPREGULATION
+
     # Cap ecDNA count
     capped_count = min(ecDNA_count, MAX_ECDNA_COPIES)
 
     # Gene dosage: more copies → more mRNA
     mean_expression = EGFR_BASE_EXPRESSION + EGFR_PER_ECDNA_COPY * capped_count
 
-    # HIF-1alpha-driven upregulation under hypoxia
-    if is_hypoxic:
-        mean_expression *= (1.0 + EGFR_HYPOXIA_UPREGULATION)
+    # Hypoxia-driven upregulation (HIF-2alpha mediated translation)
+    if is_hypoxic and hypoxia_upregulation > 0:
+        mean_expression *= (1.0 + hypoxia_upregulation)
 
     # Add transcriptional noise if requested
     if include_noise and rng is not None and EGFR_NOISE_CV > 0:

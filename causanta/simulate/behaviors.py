@@ -93,6 +93,7 @@ def update_effective_rates(
     cell: Cell,
     tp: CellTypeConfig,
     rng: np.random.Generator | None = None,
+    egfr_hypoxia_upregulation: float = 1.5,
 ) -> None:
     """Update EGFR expression and downstream phenotype rates.
 
@@ -106,16 +107,23 @@ def update_effective_rates(
     Also implements "Go or Grow" dynamics:
     - Migration increased by EGFR expression AND hypoxia
     - VEGF secretion increased by EGFR expression
+
+    Args:
+        cell: Cell to update
+        tp: Cell type configuration
+        rng: Random number generator
+        egfr_hypoxia_upregulation: Hypoxia effect on EGFR (0=none, 1.5=2.5x)
     """
     # Step 1: Compute EGFR expression from ecDNA count + hypoxia
     # Causal links:
     #   ecDNA_count (Z) -> EGFR_mRNA  (gene dosage, exogenous)
-    #   is_hypoxic  (M) -> EGFR_mRNA  (HIF-1alpha, endogenous component)
+    #   is_hypoxic  (M) -> EGFR_mRNA  (HIF-2alpha translation, endogenous component)
     cell.egfr_expression = compute_egfr_expression(
         cell.ecDNA_count,
         is_hypoxic=cell.is_hypoxic,
         rng=rng,
         include_noise=True,  # Transcriptional stochasticity
+        hypoxia_upregulation=egfr_hypoxia_upregulation,
     )
 
     # Step 2: EGFR expression drives downstream phenotypes
@@ -531,8 +539,9 @@ def _execute_division(
     parent.cycle_clock_hr = 0.0
 
     # Update effective rates for both cells (computes EGFR expression from new ecDNA counts)
-    update_effective_rates(parent, tp, rng)
-    update_effective_rates(daughter, tp, rng)
+    egfr_hyp = config.environment.egfr_hypoxia_upregulation
+    update_effective_rates(parent, tp, rng, egfr_hypoxia_upregulation=egfr_hyp)
+    update_effective_rates(daughter, tp, rng, egfr_hypoxia_upregulation=egfr_hyp)
 
     # Now compute division time using EGFR expression (proper causal chain)
     base_time = tp.division_time_mean_hr

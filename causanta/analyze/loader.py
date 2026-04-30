@@ -186,12 +186,19 @@ def load_simulation_output(
     """
     output_dir = Path(output_dir)
 
-    # Load config
-    config = load_config(output_dir)
+    # Check for data subdirectory (new organized structure)
+    data_dir = output_dir / "data"
+    if not data_dir.exists():
+        data_dir = output_dir  # Fall back to flat structure
+
+    # Load config (try data/ first, then root)
+    config = load_config(data_dir)
+    if not config:
+        config = load_config(output_dir)
 
     # Find all timestep files
-    cells_files = sorted(output_dir.glob("cells_t*.tsv"))
-    env_files = sorted(output_dir.glob("environment_t*.tsv"))
+    cells_files = sorted(data_dir.glob("cells_t*.tsv"))
+    env_files = sorted(data_dir.glob("environment_t*.tsv"))
 
     # Extract timesteps from filenames
     all_timesteps = []
@@ -215,18 +222,18 @@ def load_simulation_output(
     # Load cell data
     cells = {}
     for t in load_timesteps:
-        cells_path = output_dir / f"cells_t{t:06d}.tsv"
+        cells_path = data_dir / f"cells_t{t:06d}.tsv"
         cells[t] = load_cells_tsv(cells_path)
 
     # Load environment data
     environment = {}
     for t in load_timesteps:
-        env_path = output_dir / f"environment_t{t:06d}.tsv"
+        env_path = data_dir / f"environment_t{t:06d}.tsv"
         environment[t] = load_environment_tsv(env_path)
 
     # Load lineage and summary (always load all)
-    lineage = load_lineage_tsv(output_dir / "lineage.tsv")
-    summary = load_summary_log(output_dir / "summary.log")
+    lineage = load_lineage_tsv(data_dir / "lineage.tsv")
+    summary = load_summary_log(data_dir / "summary.log")
 
     return SimulationData(
         output_dir=output_dir,

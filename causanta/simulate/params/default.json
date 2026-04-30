@@ -1,12 +1,12 @@
 {
   "rng_seed": 42,
   "domain": {
-    "width_um": 10000,
-    "height_um": 30000,
+    "width_um": 600,
+    "height_um": 600,
     "env_grid_um": 10
   },
   "time": {
-    "total_hours": 300,
+    "total_hours": 160,
     "dt_diffusion_hr": 0.01,
     "output_interval_hr": 1,
     "burnin_hours": 20

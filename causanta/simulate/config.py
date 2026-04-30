@@ -40,6 +40,10 @@ class EnvironmentConfig:
     q_glucose_transfer_per_hr: float = 3.0
     hypoxia_threshold_mmHg: float = 10.0
     substrates: dict[str, SubstrateConfig] = field(default_factory=dict)
+    # Hypoxia effect on EGFR expression (HIF-2alpha mediated translation).
+    # Set to 0.0 to remove the Hypoxia→EGFR edge for robustness analysis.
+    # Reference: Franovic et al. 2007 PNAS showed ~2-3x increase.
+    egfr_hypoxia_upregulation: float = 1.5  # (1+value)x increase under hypoxia
 
 
 @dataclass(frozen=True)
@@ -156,6 +160,7 @@ class TumorSeed:
 @dataclass(frozen=True)
 class SimulationConfig:
     rng_seed: int = 42
+    output_dir: str | None = None  # Explicit output directory; if None, timestamped dir is created
     domain: DomainConfig = field(default_factory=DomainConfig)
     time: TimeConfig = field(default_factory=TimeConfig)
     environment: EnvironmentConfig = field(default_factory=EnvironmentConfig)
@@ -261,6 +266,7 @@ def load_config(json_path: str | Path) -> SimulationConfig:
         q_glucose_transfer_per_hr=env_data.get("q_glucose_transfer_per_hr", 3.0),
         hypoxia_threshold_mmHg=env_data.get("hypoxia_threshold_mmHg", 10.0),
         substrates=substrates,
+        egfr_hypoxia_upregulation=env_data.get("egfr_hypoxia_upregulation", 1.5),
     )
 
     # Angiogenesis
@@ -314,6 +320,7 @@ def load_config(json_path: str | Path) -> SimulationConfig:
 
     return SimulationConfig(
         rng_seed=data.get("rng_seed", 42),
+        output_dir=data.get("output_dir"),
         domain=domain,
         time=time_cfg,
         environment=environment,
