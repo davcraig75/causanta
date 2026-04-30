@@ -1,0 +1,191 @@
+{
+  "small_1000x1000": {
+    "baseline": {
+      "hif_effect": 1.5,
+      "n_cells": 632,
+      "ols_beta": 1.124,
+      "iv_beta": 0.889,
+      "ols_bias_pct": 26.4,
+      "precision": 0.714,
+      "recall": 0.833,
+      "f1_score": 0.769
+    },
+    "reduced": {
+      "hif_effect": 0.5,
+      "n_cells": 781,
+      "ols_beta": 1.069,
+      "iv_beta": 0.886,
+      "ols_bias_pct": 20.7,
+      "precision": 0.714,
+      "recall": 0.833,
+      "f1_score": 0.769
+    },
+    "removed": {
+      "hif_effect": 0.0,
+      "n_cells": 619,
+      "ols_beta": 0.758,
+      "iv_beta": 0.757,
+      "ols_bias_pct": 0.1,
+      "precision": 0.8,
+      "recall": 0.8,
+      "f1_score": 0.8
+    }
+  },
+  "large_2000x2000": {
+    "large_baseline": {
+      "size": "2000x2000 um",
+      "hif_effect": 1.5,
+      "n_cells": 11644,
+      "ols_beta": 0.697,
+      "iv_beta": 0.5,
+      "ols_bias_pct": 39.4,
+      "precision": 0.667,
+      "recall": 0.8,
+      "f1_score": 0.727
+    },
+    "large_reduced": {
+      "size": "2000x2000 um",
+      "hif_effect": 0.5,
+      "n_cells": 9120,
+      "ols_beta": 0.505,
+      "iv_beta": 0.327,
+      "ols_bias_pct": 54.4,
+      "precision": 0.714,
+      "recall": 1.0,
+      "f1_score": 0.833
+    },
+    "large_removed": {
+      "size": "2000x2000 um",
+      "hif_effect": 0.0,
+      "n_cells": 9240,
+      "ols_beta": 0.371,
+      "iv_beta": 0.367,
+      "ols_bias_pct": 0.9,
+      "precision": 0.8,
+      "recall": 0.8,
+      "f1_score": 0.8
+    }
+  },
+  "xlarge_6000x6000": {
+    "xlarge_baseline": {
+      "scenario": "xlarge_baseline",
+      "size": "6000x6000 um",
+      "hif_effect": 1.5,
+      "n_cells": 31888,
+      "ols_beta": 4.302,
+      "iv_beta": 3.416,
+      "ols_bias_pct": 25.9,
+      "bias_ratio": 1.26,
+      "first_stage_F": 194683.9,
+      "precision": 0.8,
+      "recall": 1.0,
+      "f1_score": 0.889,
+      "edges_found": [
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ]
+      ],
+      "edges_missed": [],
+      "edges_extra": [
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ]
+      ]
+    },
+    "xlarge_reduced": {
+      "scenario": "xlarge_reduced",
+      "size": "6000x6000 um",
+      "hif_effect": 0.5,
+      "n_cells": 7320,
+      "ols_beta": 5.246,
+      "iv_beta": 4.944,
+      "ols_bias_pct": 6.1,
+      "bias_ratio": 1.06,
+      "first_stage_F": 96093.6,
+      "precision": 0.6,
+      "recall": 0.75,
+      "f1_score": 0.667,
+      "edges_found": [
+        [
+          "egfr_expression",
+          "ecDNA_count"
+        ],
+        [
+          "O2_local",
+          "ecDNA_count"
+        ]
+      ],
+      "edges_missed": [
+        [
+          "ecDNA_count",
+          "egfr_expression"
+        ]
+      ],
+      "edges_extra": [
+        [
+          "egfr_expression",
+          "ecDNA_count"
+        ],
+        [
+          "O2_local",
+          "ecDNA_count"
+        ]
+      ]
+    },
+    "xlarge_removed": {
+      "scenario": "xlarge_removed",
+      "size": "6000x6000 um",
+      "hif_effect": 0.0,
+      "n_cells": 3805,
+      "ols_beta": 6.131,
+      "iv_beta": 6.189,
+      "ols_bias_pct": -0.9,
+      "bias_ratio": 0.99,
+      "first_stage_F": 70740.8,
+      "precision": 0.667,
+      "recall": 1.0,
+      "f1_score": 0.8,
+      "edges_found": [
+        [
+          "ecDNA_count",
+          "O2_local"
+        ],
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ],
+        [
+          "migration_rate",
+          "VEGF_secretion"
+        ]
+      ],
+      "edges_missed": [],
+      "edges_extra": [
+        [
+          "migration_rate",
+          "VEGF_secretion"
+        ],
+        [
+          "ecDNA_count",
+          "O2_local"
+        ]
+      ]
+    }
+  },
+  "summary": {
+    "baseline_avg_bias": 30.6,
+    "reduced_avg_bias": 27.1,
+    "removed_avg_bias": 0.3,
+    "conclusion": "OLS bias eliminated when HIF confounder is removed, confirming SIV framework validity"
+  }
+}

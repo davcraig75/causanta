@@ -1,0 +1,38 @@
+{
+  "baseline": {
+    "hif_effect": 1.5,
+    "n_cells": 632,
+    "ols_beta": 1.124,
+    "iv_beta": 0.889,
+    "ols_bias_pct": 26.4,
+    "precision": 0.714,
+    "recall": 0.833,
+    "f1_score": 0.769
+  },
+  "reduced": {
+    "hif_effect": 0.5,
+    "n_cells": 781,
+    "ols_beta": 1.069,
+    "iv_beta": 0.886,
+    "ols_bias_pct": 20.7,
+    "precision": 0.714,
+    "recall": 0.833,
+    "f1_score": 0.769
+  },
+  "removed": {
+    "hif_effect": 0.0,
+    "n_cells": 619,
+    "ols_beta": 0.758,
+    "iv_beta": 0.757,
+    "ols_bias_pct": 0.1,
+    "precision": 0.8,
+    "recall": 0.8,
+    "f1_score": 0.8
+  },
+  "improvements": {
+    "note": "Removed glucose_local from discovery variables (redundant with O2_local)",
+    "precision_improvement": "0.43 \u2192 0.71-0.80 (65-86%)",
+    "recall_improvement": "0.50 \u2192 0.80-0.83 (60-66%)",
+    "f1_improvement": "0.46 \u2192 0.77-0.80 (67-74%)"
+  }
+}

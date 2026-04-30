@@ -39,8 +39,23 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Simulation outputs (large files)
+# Logs (typically per-run stdout, large) — but keep per-run summary.log
 *.log
+!output/*/data/summary.log
+
+# Simulation outputs - keep small key files (analysis JSON/figures at top level
+# of output/, plus per-run params.json/lineage.tsv/summary.log), ignore the
+# bulky raw artifacts (per-timestep TSVs, Vega specs, HTML reports, animations).
+output/*/data/cells_t*.tsv
+output/*/data/environment_t*.tsv
+output/*/data/visualization.vg.json
+output/*/figures/
+output/*/reports/
+output/*/animations/
+
+# Timestamped run directories from ad-hoc invocations (named param-file runs
+# are reproducible; timestamped ones are usually scratch).
+output/run_*/
 
 # Numba cache
 *.nbi

@@ -1,0 +1,116 @@
+{
+  "xlarge_baseline": {
+    "scenario": "xlarge_baseline",
+    "size": "6000x6000 um",
+    "hif_effect": 1.5,
+    "n_cells": 31888,
+    "ols_beta": 4.302,
+    "iv_beta": 3.416,
+    "ols_bias_pct": 25.9,
+    "bias_ratio": 1.26,
+    "first_stage_F": 194683.9,
+    "precision": 0.8,
+    "recall": 1.0,
+    "f1_score": 0.889,
+    "edges_found": [
+      [
+        "ecDNA_count",
+        "VEGF_secretion"
+      ],
+      [
+        "O2_local",
+        "VEGF_secretion"
+      ]
+    ],
+    "edges_missed": [],
+    "edges_extra": [
+      [
+        "ecDNA_count",
+        "VEGF_secretion"
+      ]
+    ]
+  },
+  "xlarge_reduced": {
+    "scenario": "xlarge_reduced",
+    "size": "6000x6000 um",
+    "hif_effect": 0.5,
+    "n_cells": 7320,
+    "ols_beta": 5.246,
+    "iv_beta": 4.944,
+    "ols_bias_pct": 6.1,
+    "bias_ratio": 1.06,
+    "first_stage_F": 96093.6,
+    "precision": 0.6,
+    "recall": 0.75,
+    "f1_score": 0.667,
+    "edges_found": [
+      [
+        "egfr_expression",
+        "ecDNA_count"
+      ],
+      [
+        "O2_local",
+        "ecDNA_count"
+      ]
+    ],
+    "edges_missed": [
+      [
+        "ecDNA_count",
+        "egfr_expression"
+      ]
+    ],
+    "edges_extra": [
+      [
+        "egfr_expression",
+        "ecDNA_count"
+      ],
+      [
+        "O2_local",
+        "ecDNA_count"
+      ]
+    ]
+  },
+  "xlarge_removed": {
+    "scenario": "xlarge_removed",
+    "size": "6000x6000 um",
+    "hif_effect": 0.0,
+    "n_cells": 3805,
+    "ols_beta": 6.131,
+    "iv_beta": 6.189,
+    "ols_bias_pct": -0.9,
+    "bias_ratio": 0.99,
+    "first_stage_F": 70740.8,
+    "precision": 0.667,
+    "recall": 1.0,
+    "f1_score": 0.8,
+    "edges_found": [
+      [
+        "ecDNA_count",
+        "O2_local"
+      ],
+      [
+        "egfr_expression",
+        "VEGF_secretion"
+      ],
+      [
+        "O2_local",
+        "VEGF_secretion"
+      ],
+      [
+        "migration_rate",
+        "VEGF_secretion"
+      ]
+    ],
+    "edges_missed": [],
+    "edges_extra": [
+      [
+        "migration_rate",
+        "VEGF_secretion"
+      ],
+      [
+        "ecDNA_count",
+        "O2_local"
+      ]
+    ]
+  }
+}
