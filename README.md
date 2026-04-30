@@ -613,6 +613,23 @@ Please finalize my session with the following steps:
 
 ## Change Log
 
+### 2026-04-30 (afternoon)
+
+**Output retention policy + multi-seed reliability at 2mm**
+
+- **Added (`.gitignore`):** Per-run TSVs (`output/*/data/cells_t*.tsv`, `environment_t*.tsv`), Vega specs, HTML reports, and animations are now ignored by default; per-run `params.json`, `lineage.tsv`, and `summary.log` are explicitly kept (negation pattern preserves `summary.log` against the global `*.log` rule). Timestamped `output/run_*/` directories are also ignored. New simulation runs no longer pollute `git status` with multi-GB artifacts.
+- **Added (curated `output/`):** Retroactively committed the 9 multi-scale runs' (`{robustness,large,xlarge}_{baseline,reduced,removed}`) `params.json`/`lineage.tsv`/`summary.log` plus top-level analysis JSONs and figures (~5MB total).
+- **Added (multi-seed reliability):** Four new seed param files `causanta/simulate/params/multiseed_2mm_seed{43,44,45,46}.json`. Combined with the existing `large_baseline.json` (seed=42), we ran n=5 independent seeds at the 2000×2000 μm baseline (HIF=1.5) scale.
+  - **Reliability findings (n=5 seeds, 2mm baseline):**
+    - N tumor cells: 12,173 ± 578 (CV ≈ 5%)
+    - IV β: 4.022 ± 0.162 (CV ≈ 4%) — IV estimates are tight across seeds
+    - OLS β: 4.365 ± 0.434 (CV ≈ 10%) — OLS varies more than IV
+    - PC discovery: F1 = 0.916 ± 0.085, recall = 1.000 ± 0.000, precision = 0.853 ± 0.144
+    - First-stage F: 106k–230k (always strong)
+  - The single-seed F1 = 0.727 reported in the prior 2mm baseline result was on the low tail; the mean across 5 seeds is 0.916, confirming the PC pipeline is reliable at this scale.
+  - **Added:** `output/multiseed_2mm_results.json` with per-seed and aggregate statistics.
+- **Note (6mm scale):** Multi-seed at 6000×6000 μm is impractical (~75 min/seed × 5 seeds = 6+ hours single-threaded; ~2 hr in 4× parallel). Deferred; the existing single-seed 6mm results plus 2mm reliability bounds are deemed sufficient for the manuscript.
+
 ### 2026-04-30
 
 **Comprehensive multi-scale robustness analysis of SIV framework**

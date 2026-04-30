@@ -1,0 +1,122 @@
+{
+  "scale": "2000x2000 um",
+  "scenario": "baseline (HIF=1.5)",
+  "n_seeds": 5,
+  "per_seed": [
+    {
+      "seed": 42,
+      "n_cells": 11644,
+      "ols_beta": 5.109,
+      "iv_beta": 4.266,
+      "ols_bias_pct": 19.8,
+      "first_stage_F": 106443.0,
+      "precision": 0.667,
+      "recall": 1.0,
+      "f1_score": 0.8,
+      "edges_found": [
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "VEGF_secretion"
+        ],
+        [
+          "egfr_expression",
+          "migration_rate"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "migration_rate"
+        ]
+      ]
+    },
+    {
+      "seed": 43,
+      "n_cells": 13099,
+      "ols_beta": 3.981,
+      "iv_beta": 3.841,
+      "ols_bias_pct": 3.6,
+      "first_stage_F": 229655.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "edges_found": []
+    },
+    {
+      "seed": 44,
+      "n_cells": 11729,
+      "ols_beta": 4.222,
+      "iv_beta": 3.929,
+      "ols_bias_pct": 7.5,
+      "first_stage_F": 159585.0,
+      "precision": 0.8,
+      "recall": 1.0,
+      "f1_score": 0.889,
+      "edges_found": [
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ]
+      ]
+    },
+    {
+      "seed": 45,
+      "n_cells": 12217,
+      "ols_beta": 4.189,
+      "iv_beta": 3.993,
+      "ols_bias_pct": 4.9,
+      "first_stage_F": 218464.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "edges_found": []
+    },
+    {
+      "seed": 46,
+      "n_cells": 12174,
+      "ols_beta": 4.322,
+      "iv_beta": 4.08,
+      "ols_bias_pct": 5.9,
+      "first_stage_F": 176837.0,
+      "precision": 0.8,
+      "recall": 1.0,
+      "f1_score": 0.889,
+      "edges_found": [
+        [
+          "ecDNA_count",
+          "VEGF_secretion"
+        ],
+        [
+          "O2_local",
+          "VEGF_secretion"
+        ]
+      ]
+    }
+  ],
+  "aggregate": {
+    "n_cells_mean": 12172.6,
+    "n_cells_sd": 578.0115050758072,
+    "ols_beta_mean": 4.3646,
+    "ols_beta_sd": 0.43424221351683445,
+    "iv_beta_mean": 4.021800000000001,
+    "iv_beta_sd": 0.16213482044274138,
+    "ols_bias_pct_mean": 8.34,
+    "ols_bias_pct_sd": 6.563002361724396,
+    "precision_mean": 0.8534,
+    "precision_sd": 0.14442229744745094,
+    "recall_mean": 1.0,
+    "recall_sd": 0.0,
+    "f1_mean": 0.9156000000000001,
+    "f1_sd": 0.08518391867013396
+  }
+}
