@@ -144,43 +144,127 @@ Beyond estimating pre-specified effects, we implement algorithms to discover cau
 
 For a validation metric, we compare discovered graphs to the ground-truth DAG using Structural Hamming Distance (SHD), precision, recall, and F1 score.
 
-The Microenvironment is discretized on a 10 μm grid and evolved via implicit Locally One-Dimensional (LOD) reaction-diffusion:
+## Simulation Engine
 
-$$\frac{\partial u}{\partial t} = D\nabla^{2}u + S(x,t) - \lambda u$$
+CAUSANTA is implemented as an agent-based simulator coupled to a reaction-diffusion solver. The simulator's role in this work is to generate observational spatial data with **known** causal structure so that IV and discovery methods can be benchmarked against ground truth. This section specifies the spatial and temporal discretization, the environment field model, the cell behavioral rules, the stochastic ecDNA replication-segregation process, the initialization protocol, and the main loop. All numerical defaults reported here are those used for the multi-scale runs in §Results.
 
-Oxygen is supplied from vessels at rate proportional to vascular density and the O2 gradient where $q = 2$ h⁻¹ and $O_{2,\text{blood}} = 40$ mmHg.
+### Spatial Domain and Temporal Discretization
 
-$$\frac{dO_{2}}{dt}|_{\text{supply}} = q \cdot \rho_{\text{vasc}} \cdot (O_{2,\text{blood}} - O_{2,\text{local}})$$
+The simulation operates on a rectangular 2D domain of configurable size; the multi-scale runs use 1000 × 1000 μm, 2000 × 2000 μm, and 6000 × 6000 μm (referred to as 1mm, 2mm, and 6mm for brevity). Cell positions are stored at single-micron resolution. The environment fields live on a coarser regular grid with spacing $h_{env} = 10$ μm; for a 6mm domain this is a 600 × 600 grid. The main time step is $\Delta t = 1$ hr, and total simulation duration ranges from 168 hr (1mm runs) to 300 hr (6mm runs). Diffusion is sub-stepped at $\Delta t_{diff} = 0.01$ hr (36 s) to keep substrate transport in lockstep with the slowest cellular timescale.
 
-We model ecDNA replication and segregation follow a two-phase process. During S phase, each copy replicates with 95% fidelity, approximately doubling the pool. During M phase, the replicated pool segregates to daughter cells via a Binomial(N\', 0.5) distribution, with copy number bounded between 0 and 100 to reflect biological constraints. This segregation creates within-lineage randomization that preserves instrument validity across successive cell divisions.
+### Environment Fields and Reaction-Diffusion
 
-We model the Immune System, where the immune module implements GBM-realistic immunosuppression through several calibrated parameters. Immunological synapse maturation requires 2.5 hours, and each synapse carries a 25% kill probability, substantially reduced from the 70% typically used in generic immune models. T cells become dysfunctional after approximately three kills, reflecting the exhaustion phenotype well documented in GBM. Activation requires high tumor proximity, and the recruitment rate is limited to 0.3% per hour to reflect restricted infiltration across the blood-brain barrier. Together, these parameters ensure that tumors grow despite immune pressure, matching the clinical reality of GBM immune evasion. We validate causal inference methods by comparing estimated effects to the ground-truth causal values configured in the simulation.
+Each environment field $E_k(\mathbf{x}, t) \in \{\text{O}_2,\ \text{glucose},\ \text{VEGF},\ \text{lactate}\}$ evolves according to a reaction-diffusion PDE:
+
+$$\frac{\partial E_k}{\partial t} = D_k \nabla^2 E_k - \lambda_k E_k + S_k(\mathbf{x}, t) - C_k(\mathbf{x}, t)$$
+
+where $D_k$ is the substrate's effective diffusion coefficient, $\lambda_k$ is its first-order decay rate, $S_k$ is the source term from vasculature and cellular secretion, and $C_k$ is the sink from cellular consumption. Substrate parameters are summarized in Table M1.
+
+| Field    | Symbol | Units | $D_k$ (μm²/hr)     | $\lambda_k$ (hr⁻¹) | Boundary value | Role |
+|----------|--------|-------|--------------------|--------------------|----------------|------|
+| Oxygen   | O₂     | mmHg  | $6.0 \times 10^6$  | 0                  | 20 mmHg        | Proliferation gate, hypoxia, necrosis, HIF |
+| Glucose  | G      | mM    | $2.4 \times 10^6$  | 0                  | 5.0 mM         | Metabolic fuel, Warburg substrate           |
+| VEGF     | V      | nM    | $3.6 \times 10^4$  | 0.6                | 0 nM           | Angiogenesis trigger                        |
+| Lactate  | L      | mM    | $9.0 \times 10^5$  | 0.06               | 1.0 mM         | pH proxy, immunosuppression                 |
+
+Table M1. Environment substrates and their PDE parameters. Diffusion coefficients are converted to μm²/hr from physiological μm²/min reference values. Boundary values for the multi-scale runs correspond to the modestly hypoxic tissue regime used in the 6mm publication configuration.
+
+**Source and sink terms.** Oxygen and glucose are supplied at vascular positions in proportion to local vascular density:
+
+$$S_{O_2}(\mathbf{x}) = q_{O_2} \cdot \rho_{vasc}(\mathbf{x}) \cdot \left(O_{2,blood} - O_2(\mathbf{x})\right)$$
+
+with transfer coefficient $q_{O_2} = 2$ hr⁻¹ and arterial reference $O_{2,blood} = 40$ mmHg. Cellular consumption acts as a point sink at the voxel containing each cell:
+
+$$C_{O_2}(\mathbf{x}) = \sum_c \frac{c_{O_2}^{(c)}}{V_{vox}} \, \delta\!\left(\mathbf{x} - \mathbf{x}_c\right)$$
+
+where $c_{O_2}^{(c)}$ is the per-cell oxygen consumption rate (e.g., 30,000 amol/hr for neurons, 72,000 for tumor cells), $V_{vox} = h_{env}^2$, and $\delta$ is the discrete grid delta. VEGF is secreted only by hypoxic cells: $S_V(\mathbf{x}) = \sum_c r_V^{(c)} \cdot \mathbb{1}[O_2(\mathbf{x}_c) < \theta_{hyp}] \cdot \delta(\mathbf{x} - \mathbf{x}_c) / V_{vox}$, where $\theta_{hyp} = 18$ mmHg. Lactate is produced by tumor cells in proportion to glucose consumption (Warburg metabolism).
+
+**Boundary conditions.** Dirichlet boundary conditions are applied at all four edges, fixing each field to its tissue-baseline value (Table M1). This represents the surrounding normal tissue acting as an infinite substrate reservoir.
+
+**Numerical scheme.** Diffusion is solved via implicit Locally One-Dimensional (LOD) operator splitting: for each substrate and each diffusion sub-step, we sequentially solve an implicit tridiagonal system in the x-direction (one Thomas-algorithm solve per row) and then in the y-direction (one per column), apply the source/sink and decay operators as a separate algebraic step, enforce boundary conditions, and clamp values to their physical ranges. The implicit LOD scheme is **unconditionally stable**, which removes the CFL constraint that the high oxygen diffusion coefficient would otherwise impose. This allows the 0.01 hr diffusion sub-step to be used uniformly across all substrates regardless of their $D_k$.
+
+### Cell Agent Model
+
+Cells are discrete agents with identity (cell_id, parent_id, generation), position $(x, y)$, morphology (diameter, shape path, orientation), cell-cycle phase $\in \{G_0, G_1, S, G_2, M\}$, ecDNA state (count and cargo), sampled local environment (O₂, glucose), derived flags (is_hypoxic, is_quiescent), and effective behavioral rates. Nine cell types are modelled, with parameters summarized in Table M2.
+
+| Cell type | Can divide | Division time (hr) | Migration speed (μm/hr) | Key behaviors |
+|-----------|------------|--------------------|--------------------------|----------------|
+| Neuron           | no  | —          | 0  | Post-mitotic, high O₂ demand |
+| Astrocyte        | yes | 168 ± 24   | 3  | Contact-inhibited, reactive transition |
+| Oligodendrocyte  | no  | —          | 1  | Sensitive to hypoxia |
+| Microglia        | no  | —          | 30 | Resident immune, chemokine-activated |
+| Endothelial      | yes | 60 ± 12    | 10 | VEGF-responsive, vessel sprouting |
+| Pericyte         | no  | —          | 5  | Stabilizes endothelial vessels |
+| Tumor            | yes | 24 ± 8     | 10 | Non-contact-inhibited, ecDNA-bearing |
+| RecruitedImmune  | yes | 36 ± 8     | 35 | Chemotaxis, exhaustion dynamics |
+| Necrotic         | no  | —          | 0  | Lysing debris, blocks space |
+
+Table M2. Cell types and behavioral parameters used in the 6mm publication configuration. Astrocyte division time corresponds to the slow turnover observed in adult cortex; tumor division time uses the 24-hour value calibrated for GBM. Apoptosis rates are 10⁻⁴/hr for normal lineages and 5 × 10⁻⁵/hr for tumor cells (further reduced under ecDNA-driven survival signaling).
+
+**Proliferation.** Each hour, dividing-capable cells advance their cycle clock by $\Delta t$ provided the resource gate passes:
+
+$$\text{can\_proliferate} = \mathbb{1}[O_2 > \theta_{O_2}^{prol}] \cdot \mathbb{1}[G > \theta_G^{prol}] \cdot \mathbb{1}[\text{generation} < g_{max}] \cdot \mathbb{1}[\exists \text{ free neighbor}]$$
+
+Phase durations are fractions of the cell-type-specific total division time $T$: $0.40T$ (G₁), $0.30T$ (S), $0.15T$ (G₂), $0.15T$ (M). If resources drop below threshold during S/G₂/M, the cell arrests (clock pauses, phase preserved). On M-phase completion with an empty adjacent voxel available, a daughter is placed at that voxel, both cells reset to G₁, and generation is incremented.
+
+**Migration.** Motile cells compute a velocity vector as a weighted sum of persistence, chemotaxis, and noise:
+
+$$\mathbf{v}_c = \mathbf{v}_{persist} + \chi_{O_2} \nabla O_2 + \chi_{VEGF} \nabla V + \chi_{chemo} \nabla [\text{chemokine}] + \chi_{ECM} \nabla [\text{ECM}] + \mathbf{v}_{noise}$$
+
+where $\mathbf{v}_{persist} = \mathbf{v}_{prev} \cdot \exp(-\Delta t / \tau_{pers})$ provides directional memory and the $\chi$ coefficients are cell-type-specific chemotaxis sensitivities. Displacement over $\Delta t$ is $(\text{speed} \cdot \cos\theta, \text{speed} \cdot \sin\theta)$, rounded to integer micrometers. Volume exclusion rejects moves that would place the cell within one cell-diameter of another; rejected moves retry an alternate direction or hold position.
+
+**Cell death.** Three pathways: (i) **necrosis** triggers when $O_2 < \theta_{O_2}^{nec} = 2.5$ mmHg for $\tau_{nec} = 6$ consecutive hours, converting the cell to a necrotic carcass that blocks space and is lysed stochastically at rate 0.01/hr; (ii) **apoptosis** fires each hour with $P_{apo} = a_{eff} \cdot \Delta t$ and removes the cell immediately; (iii) **immune kill** fires when a recruited immune cell or activated microglia is within $r_{kill} = 15$ μm of a tumor cell, with kill probability $0.25$ per maturation event (2.5 hr synapse maturation), capped at three kills per immune cell before exhaustion. The hypoxia-sensitive cell types (tumor, neuron, oligodendrocyte) carry a hypoxia-apoptosis multiplier of 50× to accelerate death under prolonged severe hypoxia.
+
+**Angiogenesis.** When local VEGF exceeds $\theta_V = 5$ nM adjacent to an endothelial cell, that endothelial cell may sprout: with probability $0.01$ per hour the tip cell extends one voxel up the VEGF gradient, a stalk cell is placed at the vacated position, and vascular_density at the new tip rises to its mature value over $\tau_{mat} = 48$ hr. Anastomosis with another vessel completes a loop and activates the new path as an O₂/glucose source.
+
+### Stochastic ecDNA Replication and Segregation
+
+ecDNA replicates during S phase and segregates during M phase. We model these as two sequential stochastic steps so that both replication fidelity and partition randomness contribute to within-lineage heterogeneity.
+
+**Replication (S phase).** Given parent count $N$ at S-phase entry, the replicated pool $N'$ is drawn as a sum of $N$ independent Bernoulli replications with success probability $p_{rep} \approx 0.95$, plus the original copies:
+
+$$N' = N + \text{Binomial}(N, p_{rep})$$
+
+This yields a mean replication ratio of $1 + p_{rep} \approx 1.95$, slightly under the perfect doubling that chromosomal DNA achieves, consistent with reported per-copy replication efficiency for circular ecDNA.
+
+**Segregation (M phase).** The replicated pool $N'$ is partitioned to the two daughters by independent Bernoulli trials with success probability $p_{seg} = 0.5$:
+
+$$Z_{daughter} \sim \text{Binomial}(N', p_{seg}), \qquad Z_{parent\_after} = N' - Z_{daughter}$$
+
+The total $Z_{daughter} + Z_{parent\_after} = N'$ is conserved at the lineage level. Copy number is clamped to $[0, Z_{max}]$ with $Z_{max} = 100$ to reflect the upper bound observed in real ecDNA-amplified tumors. Critically, this segregation depends only on $N'$ and $p_{seg}$; it does not depend on the local microenvironment $\mathbf{U}$, which is the property that makes ecDNA a valid instrument.
+
+**ecDNA-driven phenotype modulation.** The downstream effects of ecDNA copy number on cellular phenotypes are the ground-truth causal effects that IV and discovery methods are benchmarked against. For tumor cells:
+
+$$T_{div}^{eff} = \frac{T_{div}^{base}}{1 + \alpha \log_2(1 + Z)}, \quad S_{VEGF}^{eff} = S_{VEGF}^{base} (1 + \beta Z), \quad v^{eff} = v^{base} (1 + \delta Z), \quad a^{eff} = \frac{a^{base}}{1 + \gamma Z}$$
+
+with default coefficients $\alpha = 0.30$ (division acceleration), $\beta = 0.10$ (VEGF amplification), $\delta = 0.05$ (migration boost), $\gamma = 0.50$ (apoptosis suppression). These coefficients are exposed in the simulation parameter file and are treated as known ground truth for benchmarking.
+
+**Hypoxia-mediated confounding.** EGFR protein expression is computed as a function of ecDNA copy number **and** local hypoxia state, the latter modeling HIF-2α-driven translational upregulation (Franovic et al., 2007):
+
+$$\text{EGFR}_c = \left[\text{base} + \kappa Z_c\right] \cdot \left[1 + \kappa_{hyp} \cdot \mathbb{1}[\text{is\_hypoxic}_c]\right] \cdot \exp(\epsilon_c)$$
+
+with base = 2.89, $\kappa = 1.21$, default $\kappa_{hyp} = 1.5$, and log-normal transcriptional noise $\epsilon_c \sim \mathcal{N}(0, 0.1^2)$. The $\kappa_{hyp}$ parameter is the hypoxia-EGFR coupling strength that we systematically vary in the multi-scale robustness analysis ($\kappa_{hyp} \in \{1.5, 0.5, 0.0\}$, corresponding to baseline / reduced / removed scenarios). Setting $\kappa_{hyp} = 0$ severs the Hypoxia → EGFR edge in the structural causal model and is the cleanest test of whether the observed OLS bias is attributable to the modeled confounding pathway.
+
+### Initialization and Equilibration
+
+Normal tissue is populated at a density of $10^{-3}$ cells/μm² with cell-type fractions calibrated to adult cortical gray matter: 45% neurons, 25% astrocytes, 12% oligodendrocytes, 7% microglia, 4% endothelial, 2% pericytes. The vascular network is placed first as a branching capillary pattern with inter-capillary spacing of $\sim 150$ μm; pericytes are placed adjacent to endothelial cells. Tumor seeds (1–3 cells with initial $Z = 20$ EGFR-bearing ecDNA) are placed at user-specified coordinates near the domain center.
+
+Before the recorded time series begins, the environment fields are equilibrated for a burn-in period ($t_{burn} = 30$ hr for 2mm runs, 40 hr for 6mm runs) during which the LOD diffusion solver runs but no cell behaviors execute. This ensures that the recorded $t = 0$ state reflects steady-state O₂ and glucose distributions consistent with the placed vasculature, rather than the artificial uniform initial condition.
+
+### Main Simulation Loop
+
+For each main step $t = 1, 2, \ldots, T_{total}$:
+
+1. **Phase 1 — Environment diffusion.** For each substrate, run $\lfloor \Delta t / \Delta t_{diff} \rfloor = 100$ implicit-LOD sub-steps (computing sources/sinks, solving x-sweep then y-sweep, applying decay and clamps). Derived fields (pH from lactate, hypoxia flags from O₂) are updated at the end of Phase 1.
+2. **Phase 2 — Cell behavior** (cells processed in randomly shuffled order). For each living cell: sample local environment via bilinear interpolation, update hypoxic/quiescent flags, check necrosis and apoptosis, evaluate state transitions, advance the cell cycle (including division with binomial ecDNA segregation), and attempt migration (with volume exclusion).
+3. **Phase 3 — Angiogenesis.** For each endothelial cell with adjacent VEGF above threshold, attempt sprouting.
+4. **Phase 4 — Immune recruitment.** For each vascular position with chemokine above threshold, stochastically spawn a recruited immune cell.
+5. **Phase 5 — Cleanup.** Stochastic lysis of necrotic cells; update environment-grid occupancy maps.
+6. **Phase 6 — Output** (at configured interval, default 1 hr). Write `cells_t{step:06d}.tsv`, `environment_t{step:06d}.tsv`, append division events to `lineage.tsv`, and emit a summary line to `summary.log`.
+
+Per-hour outputs serve two purposes: (i) post-hoc IV and discovery analyses operate on the final-timestep cells file, and (ii) the lineage file provides every division event needed to validate the binomial segregation assumption empirically (see §Results).
 
 ## Output Analysis & Validation
-
-  --------------------------------------------------------------------------------------------
-  Name              Division Time   Migration Speed   Key Behaviors
-  ----------------- --------------- ----------------- ----------------------------------------
-  Neuron            \-              0                 Post-mitotic, high O2 demand
-
-  Astrocyte         168h            3 μm/h            Contact-inhibited, reactive transition
-
-  Oligodendrocyte   \-              1 μm/h            Myelinating, sensitive to hypoxia
-
-  Microglia         \-              30 μm/h           Resident immune, activation dynamics
-
-  Endothelial       60h             10 μm/h           VEGF-responsive, vessel formation
-
-  Pericyte          \-              5 μm/h            Vessel stabilization
-
-  Tumor             24h             10 μm/h           Non-contact-inhibited, ecDNA+
-
-  RecruitedImmune   36h             35 μm/h           Chemotaxis, exhaustion dynamics
-
-  Necrotic          \-              0                 Lysing debris
-  --------------------------------------------------------------------------------------------
-
-  : Table 2. The simulation tracks nine cell types with distinct behaviors:
 
 Using simulation output, we estimate the causal parameters α, β, δ, and γ through three approaches: OLS regression, which is biased by confounding; two-stage least squares using ecDNA as the instrument, which should recover the true configured values; and sibling comparison, which controls all shared confounders. We evaluate each estimator using relative error (the absolute difference between estimated and true values normalized by the true value), coverage (whether the 95% confidence interval includes the true value), and the bias ratio of the OLS estimate to the IV estimate, where values greater than one indicate positive confounding.
 
@@ -216,9 +300,23 @@ Even genetically identical cells, clones derived from a single ancestor, rapidly
 
 The oncogenes carried on ecDNA are among the most potent drivers in cancer. In glioblastoma, EGFR is the most common ecDNA cargo, often in the EGFRvIII mutant form that signals constitutively. Other common ecDNA oncogenes include MYC, MYCN, CDK4, MDM2, and PDGFRA. Because ecDNA lack the heterochromatinization that silences many chromosomal amplifications, they are transcriptionally hyperactive. ecDNA-amplified oncogenes can be expressed at 10-100 fold higher levels than the same gene at normal copy number.
 
-## Causal Simulation for ecDNA expansion.
+## Simulation Behavior and Biological Validation
 
-To validate causal inference methods, we developed CAUSANTA (Causal Analysis Using Somatic And Neighborhood Tissue Architecture), a simulation that generates synthetic tumor tissue with embedded, known causal structure. CAUSANTA implements a six-phase hourly loop. First, environment diffusion solves reaction-diffusion PDEs for oxygen, glucose, VEGF, and lactate with Neumann boundary conditions. Second, cell behaviors including division, apoptosis, migration, and state transitions execute in random order. Third, angiogenesis proceeds through VEGF-driven sprouting from existing vasculature. Fourth, immune cells infiltrate through chemokine-dependent recruitment. Fifth, necrotic cells undergo lysis and occupancy maps are updated. Sixth, the simulation writes TSV snapshots of cell states, environment fields, and lineage events. The simulation tracks nine cell types with distinct behaviors.
+For the SIV causal benchmarks to be meaningful, the underlying simulation must reproduce the biological phenomena that are believed to govern real tumor microenvironments. Otherwise the recovered causal effects could be artifacts of an unrealistic substrate. We therefore verified that CAUSANTA (the simulator specified in §Methods–Simulation Engine) reproduces a set of pre-registered validation targets drawn from the cancer-biology and spheroid-modeling literature. Targets and observed values across the multi-scale runs are summarized in Table R1.
+
+| Target phenomenon | Expected | Observed in CAUSANTA |
+|-------------------|----------|----------------------|
+| Avascular zonation | Proliferating rim ~100–200 μm from vessels; quiescent intermediate zone; necrotic core in tumors > ~1 mm diameter | Necrotic cores appeared in 6mm baseline runs once tumors exceeded ~1.5 mm diameter; 1,386 necrotic cells at t = 255 hr |
+| Oxygen gradient | Hypoxia onset at ~100–150 μm from nearest vessel | Steady-state O₂ in 6mm runs drops from 20 mmHg at boundary to < 10 mmHg by t = 240 hr (mean O₂ across the domain = 9.9 mmHg at t = 240 hr in the 2mm baseline run) |
+| Tumor growth dynamics | Exponential early, transitioning to slower growth as carrying capacity / necrosis dominate | 2mm baseline: 3 → 11,644 tumor cells over 240 hr; 6mm baseline: 3 → 31,888 tumor cells over 300 hr; growth-curve shape transitions from exponential to sub-exponential after necrotic onset |
+| Binomial ecDNA partitioning | Daughter fraction ~ Binomial(N′, 0.5), conserved at lineage level | Mean daughter fraction = 0.501 (95% CI 0.499–0.503), variance matches Binomial prediction (see §Validation of Instrument Independence) |
+| Replication fidelity | ~95% per-copy replication efficiency for circular ecDNA | Mean replication ratio = 1.94 (95% CI 1.92–1.96), corresponding to per-copy probability 0.948 |
+| VEGF-driven sprouting | Angiogenic switch as hypoxic VEGF accumulates | Endothelial population grew from 5,523 (initial) to > 8,000 in 2mm runs; vascular density expanded into tumor regions over time |
+| Immune exclusion under GBM-realistic constraints | Tumor growth proceeds despite immune pressure | Across all 30 multi-seed runs, tumor populations grew through the entire simulation; recruited immune density limited by the 0.003/hr rate, reproducing the immune-cold core observed in GBM |
+
+Table R1. Validation of CAUSANTA against pre-registered biological targets. Observed values are taken from the multi-scale runs reported in §Robustness Analysis (n = 5 seeds × 6 (scale, scenario) cells = 30 simulations). All targets met within the range expected for adult cortical gray matter under GBM-style tumor invasion.
+
+The phenotype-modulation equations in §Methods–Simulation Engine fix the ground-truth causal parameters at $\alpha = 0.30, \beta = 0.10, \delta = 0.05, \gamma = 0.50$ (the per-ecDNA-copy effects on division acceleration, VEGF amplification, migration boost, and apoptosis suppression respectively). These constants are exposed as plain JSON entries in each run's `params.json` file and copied to the output directory at simulation start, so every analysis downstream can validate against the exact ground truth that was simulated. The hypoxia–EGFR coupling strength $\kappa_{hyp}$, defined in the same section, is the parameter that we systematically vary in §Robustness Analysis to demonstrate that the OLS bias predicted by the structural causal model collapses when the confounding edge is severed.
 
 ## **Satisfying the** instrumental **variable conditions.** 
 
