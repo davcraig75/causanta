@@ -1,0 +1,51 @@
+
+digraph CausalDAG {
+    rankdir=TB;
+    node [shape=box, style=rounded];
+    
+    // Exogenous
+    O2 [label="O2_local
+(U)", shape=ellipse, style=dashed];
+    
+    // Instrument
+    ecDNA [label="ecDNA_count
+(Z)
+INSTRUMENT", color=green, penwidth=2];
+    
+    // Exposure (COLLIDER!)
+    EGFR [label="EGFR_expression
+(X)
+COLLIDER", color=red, penwidth=2];
+    
+    // Confounder
+    Hypoxia [label="is_hypoxic
+(M)", color=orange];
+    
+    // Outcomes
+    VEGF [label="VEGF_secretion
+(Y₃)", color=blue];
+    Migration [label="migration_rate
+(Y₂)", color=blue];
+    Division [label="division_time
+(Y₁)", color=blue, style="rounded,dashed"];
+    Survival [label="apoptosis_rate
+(Y₄)", color=blue, style="rounded,dashed"];
+    
+    // Edges
+    O2 -> Hypoxia [label="threshold"];
+    
+    ecDNA -> EGFR [label="κ=1.21", color=green, penwidth=2];
+    Hypoxia -> EGFR [label="×2.5", color=orange];  // CREATES COLLIDER
+    
+    EGFR -> VEGF [label="β=0.1", color=blue];
+    EGFR -> Migration [label="δ=0.05", color=blue];
+    EGFR -> Division [label="α=0.3", color=blue, style=dashed];
+    EGFR -> Survival [label="γ=0.5", color=blue, style=dashed];
+    
+    Hypoxia -> VEGF [label="×5", color=orange];
+    Hypoxia -> Migration [label="×2", color=orange];
+    Hypoxia -> Division [label="arrest", color=orange, style=dashed];
+    
+    // Subgraph for layout
+    {rank=same; VEGF; Migration; Division; Survival}
+}
