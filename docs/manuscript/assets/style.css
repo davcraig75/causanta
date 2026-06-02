@@ -1,0 +1,328 @@
+/* Manuscript Styling for GitHub Rendering */
+/* Nature Methods-inspired academic paper styling */
+
+:root {
+  --primary-color: #0077BB;
+  --secondary-color: #333333;
+  --accent-color: #EE7733;
+  --text-color: #2c3e50;
+  --background-color: #ffffff;
+  --border-color: #e1e4e8;
+  --code-bg: #f6f8fa;
+}
+
+/* Typography */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--text-color);
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Title and Authors */
+h1:first-of-type {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--secondary-color);
+  border-bottom: none;
+  margin-bottom: 0.5rem;
+}
+
+.authors {
+  font-size: 1.1rem;
+  color: var(--secondary-color);
+  margin-bottom: 0.5rem;
+}
+
+.affiliations {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 1rem;
+}
+
+.correspondence {
+  font-size: 0.9rem;
+  color: var(--primary-color);
+  margin-bottom: 2rem;
+}
+
+/* Section Headers */
+h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--secondary-color);
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 2px solid var(--primary-color);
+}
+
+h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--secondary-color);
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--secondary-color);
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Abstract Box */
+.abstract {
+  background-color: #f8f9fa;
+  border-left: 4px solid var(--primary-color);
+  padding: 1.5rem;
+  margin: 2rem 0;
+  font-size: 0.95rem;
+}
+
+.abstract h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+  color: var(--primary-color);
+}
+
+/* Paragraphs */
+p {
+  margin-bottom: 1rem;
+  text-align: justify;
+}
+
+/* Links */
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Figures */
+figure {
+  margin: 2rem 0;
+  text-align: center;
+}
+
+figure img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+figcaption {
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  color: #666;
+  text-align: left;
+  padding: 0 1rem;
+}
+
+figcaption strong {
+  color: var(--secondary-color);
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-size: 0.9rem;
+}
+
+th {
+  background-color: var(--primary-color);
+  color: white;
+  font-weight: 600;
+  padding: 0.75rem;
+  text-align: left;
+}
+
+td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+tr:nth-child(even) {
+  background-color: #f8f9fa;
+}
+
+/* Code and Variables */
+code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.9em;
+  background-color: var(--code-bg);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+}
+
+pre {
+  background-color: var(--code-bg);
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+}
+
+/* Mathematical Notation */
+.math {
+  font-family: "Times New Roman", Times, serif;
+  font-style: italic;
+}
+
+/* Equations */
+.equation {
+  text-align: center;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background-color: #fafafa;
+  border-radius: 4px;
+}
+
+/* Blockquotes for important notes */
+blockquote {
+  border-left: 4px solid var(--accent-color);
+  padding-left: 1rem;
+  margin: 1.5rem 0;
+  color: #555;
+  font-style: italic;
+}
+
+/* Lists */
+ul, ol {
+  margin-bottom: 1rem;
+  padding-left: 2rem;
+}
+
+li {
+  margin-bottom: 0.5rem;
+}
+
+/* Definition Lists for Variables */
+dl {
+  margin: 1rem 0;
+}
+
+dt {
+  font-weight: 600;
+  color: var(--secondary-color);
+}
+
+dd {
+  margin-left: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+/* References Section */
+.references {
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.references ol {
+  padding-left: 2rem;
+}
+
+.references li {
+  margin-bottom: 0.75rem;
+  padding-left: 0.5rem;
+}
+
+/* Horizontal Rules */
+hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 2rem 0;
+}
+
+/* Method Boxes */
+.method-box {
+  background-color: #f0f7ff;
+  border: 1px solid #cce0ff;
+  border-radius: 6px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.method-box h3 {
+  margin-top: 0;
+  color: var(--primary-color);
+}
+
+/* Key Points Box */
+.key-points {
+  background-color: #fff8e6;
+  border: 1px solid #ffe4a0;
+  border-radius: 6px;
+  padding: 1rem 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.key-points h4 {
+  margin-top: 0;
+  color: var(--accent-color);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  body {
+    padding: 1rem;
+    font-size: 15px;
+  }
+
+  h1:first-of-type {
+    font-size: 1.6rem;
+  }
+
+  h1 {
+    font-size: 1.3rem;
+  }
+
+  h2 {
+    font-size: 1.15rem;
+  }
+
+  table {
+    font-size: 0.8rem;
+  }
+
+  th, td {
+    padding: 0.4rem;
+  }
+}
+
+/* Print Styles */
+@media print {
+  body {
+    max-width: none;
+    padding: 0;
+  }
+
+  .abstract {
+    break-inside: avoid;
+  }
+
+  figure {
+    break-inside: avoid;
+  }
+
+  h1, h2, h3 {
+    break-after: avoid;
+  }
+}

@@ -1,0 +1,88 @@
+# Python
+.vscode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Microsoft Office lock/temp files (created while a doc is open)
+~$*
+*.tmp
+
+# Logs (typically per-run stdout, large) — but keep per-run summary.log
+*.log
+!output/**/data/summary.log
+
+# Simulation outputs - keep:
+#   - small key files (analysis JSON/figures at top level of output/)
+#   - per-run params.json/lineage.tsv/summary.log
+#   - per-run reports/ (HTML scientific summaries + viewer + gzipped movie)
+# Ignore the bulky raw artifacts:
+#   - per-timestep TSVs (cells_t*, environment_t*)
+#   - Vega specs (figures/simulation.vl.json, data/visualization.vg.json)
+#   - animations/ (empty intermediates)
+# Use ** so patterns match grouped runs too (e.g. output/multiseed_2mm/seed_43/data/).
+output/**/data/cells_t*.tsv
+output/**/data/environment_t*.tsv
+output/**/data/visualization.vg.json
+output/**/figures/
+output/**/animations/
+
+# Timestamped run directories from ad-hoc invocations (named param-file runs
+# are reproducible; timestamped ones are usually scratch).
+output/run_*/
+
+# Numba cache
+*.nbi
+*.nbc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Large regeneratable HTML reports/specs — never commit (purged from history 2026-05-26)
+output/**/reports/
+output/**/*.vl.json
+output/**/visualization.vg.json
+
+# Root figures/ is a redundant side-output of generate_simulation_figure.py;
+# canonical figures live in docs/manuscript/figures/.
+/figures/

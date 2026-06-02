@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAUSANTA — Structural Parameter Explorer</title>
+<style>
+ body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#fafafa;color:#222}
+ header{padding:14px 22px;background:#1b2a4a;color:#fff}
+ header h1{margin:0 0 4px;font-size:20px} header p{margin:0;font-size:13px;opacity:.92;max-width:1000px}
+ header code{background:rgba(255,255,255,.15);padding:1px 5px;border-radius:4px}
+ #wrap{display:flex;gap:0;min-height:calc(100vh - 78px)}
+ #side{width:320px;border-right:1px solid #ddd;padding:16px;background:#fff;font-size:13px;flex:none}
+ #stage{flex:1;padding:16px 18px;overflow:auto}
+ #side h2{font-size:14px;margin:18px 0 6px;text-transform:uppercase;letter-spacing:.04em;color:#1b2a4a}
+ #side h2:first-child{margin-top:0}
+ .ctl{margin:10px 0}
+ .ctl label{display:flex;justify-content:space-between;font-weight:600;margin-bottom:2px}
+ .ctl .val{color:#1565c0;font-variant-numeric:tabular-nums}
+ .ctl input[type=range]{width:100%;cursor:grab}
+ .ctl input[type=range]:active{cursor:grabbing}
+ .ctl small{color:#777;font-weight:400}
+ .presets{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 2px}
+ button{font:inherit;padding:5px 9px;border:1px solid #bbb;border-radius:6px;background:#f4f4f4;cursor:pointer}
+ button:hover{background:#e8e8e8} button.active{background:#1b2a4a;color:#fff;border-color:#1b2a4a}
+ .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
+ .panel{background:#fff;border:1px solid #e2e2e2;border-radius:10px;padding:10px 12px}
+ .panel h3{margin:0 0 2px;font-size:14px} .panel .eq{font-size:12px;color:#666;margin:0 0 6px;font-style:italic}
+ svg.plot{width:100%;height:190px;display:block}
+ .axis{stroke:#ccc;stroke-width:1} .tick{fill:#999;font-size:10px}
+ .curve{fill:none;stroke-width:2.5}
+ .ann{font-size:11px;fill:#444} .badge{font-size:10px;font-weight:700;padding:1px 6px;border-radius:9px}
+ .id-yes{background:#e6f4ea;color:#1e7e34} .id-weak{background:#fff4e5;color:#b26a00} .id-no{background:#fdecea;color:#c0392b}
+ table{border-collapse:collapse;width:100%;margin-top:4px;font-size:12px} td{padding:3px 4px;border-bottom:1px solid #eee}
+ .note{font-size:12px;color:#555;line-height:1.5}
+ .bigbias{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums}
+</style></head><body>
+<header>
+ <h1>CAUSANTA — Structural Parameter Explorer <span style="font-weight:400;font-size:14px">(drag the sliders)</span></h1>
+ <p>The CAUSANTA simulator generates each tumor-cell phenotype from EGFR via fixed structural equations.
+ Drag any coefficient and the response curves redraw live. The bottom-right panel runs a fresh in-browser
+ Monte-Carlo population each time you drag, showing how the hypoxia&rarr;EGFR confounder
+ (<code>&kappa;<sub>hyp</sub></code>) biases a naive OLS slope while the ecDNA instrument (2SLS) stays unbiased —
+ the core identification result of the paper.</p>
+</header>
+<div id="wrap">
+ <div id="side">
+  <h2>Scenario</h2>
+  <div class="presets" id="presets">
+   <button data-khyp="1.5" class="active">Baseline (&kappa;<sub>hyp</sub>=1.5)</button>
+   <button data-khyp="0.5">Reduced (0.5)</button>
+   <button data-khyp="0.0">Removed (0.0)</button>
+  </div>
+  <div class="note">Presets set the hypoxia&rarr;EGFR coupling; the three are the canonical confounding levels.</div>
+
+  <h2>Structural effects</h2>
+  <div class="ctl" data-p="alpha"><label>&alpha; &nbsp;<small>division</small><span class="val"></span></label><input type="range" min="0" max="0.8" step="0.01"></div>
+  <div class="ctl" data-p="beta"><label>&beta; &nbsp;<small>VEGF</small><span class="val"></span></label><input type="range" min="0" max="0.4" step="0.005"></div>
+  <div class="ctl" data-p="delta"><label>&delta; &nbsp;<small>migration</small><span class="val"></span></label><input type="range" min="0" max="0.2" step="0.005"></div>
+  <div class="ctl" data-p="gamma"><label>&gamma; &nbsp;<small>survival</small><span class="val"></span></label><input type="range" min="0" max="1.5" step="0.01"></div>
+
+  <h2>First stage / confounder</h2>
+  <div class="ctl" data-p="kappa"><label>&kappa; &nbsp;<small>EGFR per ecDNA copy</small><span class="val"></span></label><input type="range" min="0.5" max="2" step="0.01"></div>
+  <div class="ctl" data-p="khyp"><label>&kappa;<sub>hyp</sub> &nbsp;<small>hypoxia&rarr;EGFR</small><span class="val"></span></label><input type="range" min="0" max="2.5" step="0.05"></div>
+  <div class="ctl" data-p="phyp"><label>hypoxic fraction<span class="val"></span></label><input type="range" min="0" max="1" step="0.01"></div>
+
+  <div class="presets" style="margin-top:14px"><button id="reset">Reset to ground truth</button></div>
+
+  <h2>v19 recovery (5 seeds)</h2>
+  <table>
+   <tr><td>&kappa;&#770;</td><td class="val" style="text-align:right">1.22</td><td><span class="badge id-yes">first stage</span></td></tr>
+   <tr><td>&beta; (VEGF)</td><td style="text-align:right">0.100</td><td><span class="badge id-yes">2SLS, all</span></td></tr>
+   <tr><td>&delta; (migration)</td><td style="text-align:right">0.050</td><td><span class="badge id-yes">2SLS, all</span></td></tr>
+   <tr><td>&alpha; (division)</td><td style="text-align:right">0.31</td><td><span class="badge id-yes">&kappa;<sub>hyp</sub>=0 only</span></td></tr>
+   <tr><td>&gamma; (survival)</td><td style="text-align:right">&mdash;</td><td><span class="badge id-no">not identified</span></td></tr>
+  </table>
+  <div class="note" style="margin-top:8px"><b>&gamma; is a non-identified design parameter:</b> baseline apoptosis is 5&times;10<sup>&minus;5</sup>/hr, so essentially no cell dies of apoptosis &mdash; there is no survival selection to detect, regardless of &gamma;.</div>
+ </div>
+
+ <div id="stage"><div class="grid" id="grid"></div></div>
+</div>
+
+<script>
+"use strict";
+const C = {X_BASE:2.89, VEGF_BASE:600, MIGR_BASE:10, T_BASE:24, A_BASE:5e-5};
+const GT = {alpha:0.30, beta:0.10, delta:0.05, gamma:0.50, kappa:1.21, khyp:1.5, phyp:0.90};
+const P  = Object.assign({}, GT);
+
+/* ---------- tiny SVG plotting helper ---------- */
+function plot(host, {title, eq, xlabel, fn, xmin, xmax, ymin, ymax, color, badge, badgeCls, anns}) {
+  const W=330,H=190, m={l:44,r:12,t:8,b:26};
+  const sx = x => m.l + (x-xmin)/(xmax-xmin)*(W-m.l-m.r);
+  const sy = y => H-m.b - (y-ymin)/(ymax-ymin)*(H-m.t-m.b);
+  let pts=[];
+  for(let i=0;i<=120;i++){const x=xmin+(xmax-xmin)*i/120; let y=fn(x); if(!isFinite(y))continue; y=Math.max(ymin,Math.min(ymax,y)); pts.push(sx(x).toFixed(1)+","+sy(y).toFixed(1));}
+  const ticksY=[ymin,(ymin+ymax)/2,ymax], ticksX=[xmin,(xmin+xmax)/2,xmax];
+  const fmt=v=>Math.abs(v)>=100?v.toFixed(0):Math.abs(v)>=1?v.toFixed(1):v.toFixed(3);
+  let svg=`<svg class="plot" viewBox="0 0 ${W} ${H}">`;
+  svg+=`<line class="axis" x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${H-m.b}"/>`;
+  svg+=`<line class="axis" x1="${m.l}" y1="${H-m.b}" x2="${W-m.r}" y2="${H-m.b}"/>`;
+  ticksY.forEach(t=>{svg+=`<text class="tick" x="${m.l-5}" y="${sy(t)+3}" text-anchor="end">${fmt(t)}</text>`;});
+  ticksX.forEach(t=>{svg+=`<text class="tick" x="${sx(t)}" y="${H-m.b+14}" text-anchor="middle">${fmt(t)}</text>`;});
+  svg+=`<text class="tick" x="${(m.l+W-m.r)/2}" y="${H-4}" text-anchor="middle">${xlabel}</text>`;
+  svg+=`<polyline class="curve" stroke="${color}" points="${pts.join(' ')}"/>`;
+  (anns||[]).forEach(a=>{svg+=`<text class="ann" x="${sx(a.x)}" y="${sy(a.y)-4}">${a.t}</text>`;});
+  svg+=`</svg>`;
+  host.innerHTML=`<h3>${title} <span class="badge ${badgeCls}">${badge}</span></h3><p class="eq">${eq}</p>`+svg;
+}
+
+/* ---------- Monte-Carlo: OLS vs 2SLS under κ_hyp confounding ---------- */
+let _z=0; function gauss(){ // Box-Muller
+  let u=0,v=0; while(u===0)u=Math.random(); while(v===0)v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+function montecarlo(){
+  const N=3000, ec=[],hy=[],eg=[],vg=[];
+  for(let i=0;i<N;i++){
+    let e=Math.round(20+12*gauss()); e=Math.max(0,Math.min(100,e)); ec.push(e);
+    const h=Math.random()<P.phyp?1:0; hy.push(h);
+    const noise=Math.exp(0.1*gauss());
+    const E=(C.X_BASE+P.kappa*e)*(1+P.khyp*h)*noise; eg.push(E);
+    vg.push(C.VEGF_BASE*(1+P.beta*Math.sqrt(E))*(0.2+0.8*h)); // hypoxia gate = the confounder
+  }
+  const mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
+  const mE=mean(eg),mV=mean(vg),mZ=mean(ec);
+  let sEV=0,sEE=0,sZV=0,sZE=0;
+  for(let i=0;i<N;i++){const de=eg[i]-mE,dv=vg[i]-mV,dz=ec[i]-mZ; sEV+=de*dv; sEE+=de*de; sZV+=dz*dv; sZE+=dz*de;}
+  const ols=sEV/sEE;               // naive VEGF ~ EGFR
+  const iv =sZV/sZE;               // 2SLS Wald: ecDNA instruments EGFR
+  const bias=iv!==0?(ols/iv-1)*100:0;
+  return {ols,iv,bias};
+}
+
+/* ---------- render all panels ---------- */
+function render(){
+  const g=document.getElementById('grid'); g.innerHTML='';
+  const mk=()=>{const d=document.createElement('div'); d.className='panel'; g.appendChild(d); return d;};
+  const EGmax=(C.X_BASE+P.kappa*100); // EGFR axis upper bound
+
+  plot(mk(),{title:'First stage: EGFR vs ecDNA copies', badge:'identified', badgeCls:'id-yes',
+    eq:'EGFR = (X_base + κ·Z)·(1 + κ_hyp·M)', xlabel:'ecDNA copies (Z)', color:'#1565c0',
+    xmin:0,xmax:100,ymin:0,ymax:(C.X_BASE+P.kappa*100)*(1+P.khyp),
+    fn:z=>(C.X_BASE+P.kappa*z)*(1+P.khyp*1), anns:[{x:62,y:(C.X_BASE+P.kappa*62)*(1+P.khyp),t:'hypoxic'}]});
+
+  plot(mk(),{title:'β · VEGF secretion', badge:'2SLS · identified', badgeCls:'id-yes',
+    eq:'VEGF = VEGF_base·(1 + β·√EGFR)·gate', xlabel:'EGFR (X)', color:'#2e7d32',
+    xmin:0,xmax:EGmax,ymin:0,ymax:C.VEGF_BASE*(1+P.beta*Math.sqrt(EGmax))*1.05,
+    fn:E=>C.VEGF_BASE*(1+P.beta*Math.sqrt(E))});
+
+  plot(mk(),{title:'α · Division time', badge:'identified (κ_hyp=0)', badgeCls:'id-yes',
+    eq:'T_div = T_base / (1 + α·log₂(1+EGFR))', xlabel:'EGFR (X)', color:'#6a1b9a',
+    xmin:0,xmax:EGmax,ymin:0,ymax:C.T_BASE*1.05,
+    fn:E=>C.T_BASE/(1+P.alpha*Math.log2(1+E))});
+
+  plot(mk(),{title:'δ · Migration speed', badge:'2SLS · identified', badgeCls:'id-yes',
+    eq:'v = v_base·(1 + δ·EGFR)·(2× if hypoxic)', xlabel:'EGFR (X)', color:'#00838f',
+    xmin:0,xmax:EGmax,ymin:0,ymax:C.MIGR_BASE*(1+P.delta*EGmax)*1.05,
+    fn:E=>C.MIGR_BASE*(1+P.delta*E)});
+
+  plot(mk(),{title:'γ · Apoptosis rate (relative)', badge:'NOT identified', badgeCls:'id-no',
+    eq:'a = a_base / (1 + γ·log₂(1+EGFR))  —  a_base≈0 so no deaths', xlabel:'EGFR (X)', color:'#c0392b',
+    xmin:0,xmax:EGmax,ymin:0,ymax:1.05,
+    fn:E=>1/(1+P.gamma*Math.log2(1+E))});
+
+  // OLS vs IV bias panel
+  const mc=montecarlo();
+  const d=mk();
+  const biasColor=Math.abs(mc.bias)<2?'#1e7e34':(mc.bias>0?'#c0392b':'#b26a00');
+  d.innerHTML=`<h3>OLS vs 2SLS (live N=3000)</h3>
+   <p class="eq">naive OLS of VEGF on EGFR vs ecDNA-instrumented 2SLS</p>
+   <table>
+     <tr><td>OLS slope (confounded)</td><td style="text-align:right;font-weight:700">${mc.ols.toFixed(3)}</td></tr>
+     <tr><td>2SLS slope (instrumented)</td><td style="text-align:right;font-weight:700">${mc.iv.toFixed(3)}</td></tr>
+   </table>
+   <div style="text-align:center;margin-top:8px">
+     <div class="bigbias" style="color:${biasColor}">${mc.bias>0?'+':''}${mc.bias.toFixed(1)}%</div>
+     <div class="note">OLS bias vs 2SLS</div>
+     <div class="note" style="margin-top:6px">Drag <b>κ_hyp</b> to 0 and the bias collapses to ≈0 — ecDNA's random segregation makes it a valid instrument that removes the hypoxia confounding.</div>
+   </div>`;
+}
+
+/* ---------- wire controls ---------- */
+function syncInputs(){
+  document.querySelectorAll('.ctl').forEach(c=>{
+    const k=c.dataset.p, inp=c.querySelector('input'), val=c.querySelector('.val');
+    inp.value=P[k]; val.textContent=(+P[k]).toFixed(k==='beta'||k==='delta'?3:2);
+  });
+  document.querySelectorAll('#presets button[data-khyp]').forEach(b=>
+    b.classList.toggle('active', Math.abs(P.khyp-parseFloat(b.dataset.khyp))<1e-6));
+}
+document.querySelectorAll('.ctl input').forEach(inp=>{
+  inp.addEventListener('input',e=>{
+    const k=e.target.closest('.ctl').dataset.p; P[k]=parseFloat(e.target.value);
+    syncInputs(); render();
+  });
+});
+document.querySelectorAll('#presets button[data-khyp]').forEach(b=>{
+  b.addEventListener('click',()=>{P.khyp=parseFloat(b.dataset.khyp); syncInputs(); render();});
+});
+document.getElementById('reset').addEventListener('click',()=>{Object.assign(P,GT); syncInputs(); render();});
+
+syncInputs(); render();
+</script>
+</body></html>

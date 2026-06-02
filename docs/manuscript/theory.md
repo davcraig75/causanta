@@ -1,0 +1,916 @@
+# CAUSANTA: Theoretical Framework
+
+**Causal Analysis Using Somatic And Neighborhood Tissue Architecture**
+
+*Theoretical Framework & Simulation Engine Specification*
+
+---
+
+## Plain-language summary (for biologists reading this document for the first time)
+
+This document specifies how the CAUSANTA simulator is constructed and what every parameter, equation, and rule in the engine corresponds to biologically. It is intentionally exhaustive: it should let a computational reader reproduce the simulator exactly, and let a biological reader audit every choice we made.
+
+The motivation behind the engine is that we want to evaluate **causal inference** methods — methods that ask not just "what is correlated?" but "what would happen if we intervened?" — on tissue that is realistic enough to be meaningful. We do this by building a spatially explicit, agent-based tumor with diffusing oxygen, glucose, VEGF, and lactate; nine cell types (tumor, vasculature, immune, normal CNS); a vascular network that the tumor cells can outgrow into a hypoxic and eventually necrotic core; and **extrachromosomal DNA (ecDNA)** segregating stochastically at each cell division. The ecDNA is the key element: because it has no centromere, the daughter cells of a dividing tumor cell get a random number of ecDNA copies each (Binomial(N, 0.5)), and the per-copy effects of that ecDNA on cell behavior (division rate, VEGF secretion, migration, survival) are encoded in the simulator with parameter names α, β, δ, γ. We *set* these values in the configuration file, so whenever we run an analysis on simulator output, we can score the result against the truth we set.
+
+For a biologist trying to read the rest of this document: §3 (Cell Agent Model) and §4 (Environment Field Model) are the biology — what each cell type does and how the substrates flow. §6 (ecDNA as Somatic Instrumental Variable) is where the causal machinery enters; this is the section to read if you are unsure why ecDNA can act as a "natural experiment". §13 (Causal Inference Methods) lists the statistics we use to score recovery, in the same plain-language style used in the main manuscript's metrics primer. Sections 5, 7, 8, 9, 11 are the engine's algorithmic spine — important if you want to reproduce the engine, less critical for interpreting biological results.
+
+---
+
+## Table of Contents
+
+1. [Motivation and Scientific Context](#1-motivation-and-scientific-context)
+2. [Spatial Domain and Coordinate System](#2-spatial-domain-and-coordinate-system)
+3. [Cell Agent Model](#3-cell-agent-model)
+4. [Environment Field Model](#4-environment-field-model)
+5. [Cell Behavioral Rules](#5-cell-behavioral-rules)
+6. [ecDNA as Somatic Instrumental Variable](#6-ecdna-as-somatic-instrumental-variable-siv)
+7. [Initialization](#7-initialization)
+8. [Simulation Main Loop](#8-simulation-main-loop)
+9. [Output Specification](#9-output-specification)
+10. [Visualization](#10-visualization)
+11. [Core Mathematical Relationships](#11-core-mathematical-relationships)
+12. [Validation Targets](#12-validation-targets)
+13. [Causal Inference Methods](#13-causal-inference-methods)
+14. [Implementation Architecture](#14-implementation-architecture)
+
+---
+
+## 1. Motivation and Scientific Context
+
+### 1.1 The Problem
+
+Spatial transcriptomics and proteomics capture high-dimensional tissue organization, but current computational frameworks are limited to descriptive analysis. Existing methods do not distinguish **causal drivers** from **downstream effects**, nor do they predict tissue responses to molecular perturbations. These limitations stem from the observational nature of spatial data, which is heavily confounded by microenvironmental "neighborhood effects" that mask true causal drivers.
+
+Fundamental questions remain unanswered:
+- *Which computational approaches can reliably identify causal relationships?*
+- *How can we reconstruct tissue evolution from static data?*
+- *How can we predict tissue responses to molecular perturbations?*
+
+### 1.2 The CAUSANTA Solution
+
+CAUSANTA addresses these gaps by **treating somatic stochasticity as endogenous biological randomization**, enabling causal and temporal inference from multimodal spatial data.
+
+The key innovation is to treat heritable cell-to-cell genomic variation as **Somatic Instrumental Variables (SIVs)** within a Structural Causal Model. This enables identification of causal effects from otherwise observational spatial data.
+
+**Extrachromosomal DNA (ecDNA)** segregation serves as an ideal validation system:
+- Its randomized inheritance acts as a natural experiment
+- Its genomic ground truth enables rigorous benchmarking
+
+While ecDNA anchors validation, the framework generalizes to other forms of heritable somatic variation, enabling causal inference across diverse diseases and biological contexts.
+
+### 1.3 What CAUSANTA Enables
+
+The simulation engine generates synthetic tissue sections with **known ground-truth causal structure**, enabling:
+
+1. **Rigorous benchmarking** of causal discovery algorithms
+2. **Inference of temporal progression** by treating somatic variation as a biological clock
+3. **Identification of lineage-specific drivers** of clonal expansion
+4. **In silico intervention experiments** that explore how perturbations alter tissue microenvironment
+
+---
+
+## 2. Spatial Domain and Coordinate System
+
+### 2.1 Domain
+
+CAUSANTA simulates a 2D tissue section representing a histological slice. The domain size is configurable up to **12 mm × 12 mm** (12,000 μm × 12,000 μm).
+
+| Parameter | Default | Range | Description |
+|-----------|---------|-------|-------------|
+| `width_um` | 1000 | 100-12000 | Domain width in micrometers |
+| `height_um` | 1000 | 100-12000 | Domain height in micrometers |
+
+### 2.2 Coordinate Precision
+
+The **minimal spatial unit is 1 μm**. All cell positions (x, y) are recorded in micrometer coordinates at integer precision. This provides sub-cellular coordinate resolution for accurate spatial registration with FISH, PhenoCycler, and H&E imaging data.
+
+### 2.3 Environment Grid
+
+Environment fields (O₂, glucose, etc.) are computed on a **coarser regular grid** to maintain computational tractability. The environment grid resolution is configurable (`env_grid_um`, default 10 μm).
+
+| Domain Size | Grid Resolution | Grid Dimensions |
+|-------------|-----------------|-----------------|
+| 1 mm × 1 mm | 10 μm | 100 × 100 = 10,000 voxels |
+| 12 mm × 12 mm | 10 μm | 1,200 × 1,200 = 1,440,000 voxels |
+
+Cell agents exist in continuous (integer μm) space and sample the environment grid via **bilinear interpolation** at their position.
+
+### 2.4 Time
+
+The **time step is 1 hour**. All rate parameters are expressed per hour. Internal diffusion sub-stepping occurs within each 1-hour step as needed for numerical stability.
+
+---
+
+## 3. Cell Agent Model
+
+### 3.1 Cell Types
+
+| Type ID | Cell Type | Diameter (μm) | Role |
+|---------|-----------|---------------|------|
+| 0 | Neuron | 10-20 | Parenchyma; post-mitotic; displaced/killed by tumor |
+| 1 | Astrocyte | 10-15 (soma) | Glial support; tiles in ~50-100 μm domains; reactive astrogliosis at tumor margin |
+| 2 | Oligodendrocyte | 8-12 | Myelinating glia; displaced by tumor |
+| 3 | Microglia | 8-10 | Resident immune; 5-10% of glia; activates and migrates toward tumor |
+| 4 | Endothelial | 10-15 | Vasculature; O₂/glucose source; angiogenesis |
+| 5 | Pericyte | 5-8 | Wraps endothelial cells; blood-brain barrier integrity |
+| 6 | Tumor (Glioma) | 15-25 | Proliferative, invasive, ecDNA-bearing |
+| 7 | Recruited Immune | 10-12 | T cells, macrophages entering from vasculature |
+| 8 | Necrotic | variable | Dead cell; releases DAMPs; occupies space until cleared |
+
+### 3.2 Cell State Vector
+
+Every cell agent `c` carries a complete state record at each time step:
+
+```
+# Identity
+cell_id              int      Unique identifier (monotonically increasing)
+parent_id            int      cell_id of mitotic parent (-1 for initial cells)
+cell_type            int      Type code (0-8, see 3.1)
+cell_type_name       string   Human-readable name
+
+# Spatial
+x                    int      X position in μm (1 μm precision)
+y                    int      Y position in μm (1 μm precision)
+angle                float    Orientation angle in radians [0, 2π]
+
+# Morphology
+shape_path           string   SVG path string defining cell outline
+size_scale           float    Scale factor applied to shape_path (1.0 = default)
+
+# Proliferation
+cell_cycle_phase     string   {G0, G1, S, G2, M}
+cycle_clock_hr       float    Hours elapsed in current phase
+
+# Genomic / ecDNA
+ecDNA_count          int      Copy number of extrachromosomal DNA elements
+ecDNA_cargo          string   Semicolon-delimited amplified genes (e.g., "EGFR;MYC")
+
+# Lineage
+generation           int      Division count from founding ancestor
+time_born_hr         float    Simulation hour when cell was created
+
+# Local environment (sampled)
+O2_local             float    Local oxygen (mmHg) at cell position
+glucose_local        float    Local glucose (mM) at cell position
+
+# Derived state
+is_hypoxic           bool     O₂ < hypoxia threshold
+is_quiescent         bool     In G0 (contact inhibited or resource-starved)
+
+# Current rates (effective, after ecDNA modulation)
+migration_rate       float    Effective migration speed (μm/hr)
+VEGF_secretion       float    Effective VEGF output (amol/hr)
+```
+
+### 3.3 Cell Type Parameters
+
+Each cell type τ carries a parameter set **P_τ**. All rates are **per hour** (the simulation time unit).
+
+```
+# Identity
+type_id                    int      Type code
+type_name                  string   Human-readable name
+shape_path                 string   SVG path for default shape
+color                      string   Hex color for visualization
+
+# Geometry
+diameter_mean_um           float    Mean cell body diameter (μm)
+diameter_std_um            float    Standard deviation (μm)
+
+# Proliferation
+can_divide                 bool     Whether this type can undergo mitosis
+division_time_mean_hr      float    Mean total cell cycle duration (hours)
+division_time_std_hr       float    Stochastic variation (hours)
+O2_prolif_threshold_mmHg   float    Minimum O₂ for proliferation
+glucose_prolif_threshold_mM float   Minimum glucose for proliferation
+max_generations            int      Division limit (-1 = unlimited)
+
+# Migration
+migration_speed_um_hr      float    Base migration speed (μm per hour)
+migration_persistence_hr   float    Directional memory time constant (hours)
+chemotaxis_O2              float    Coefficient: bias toward O₂ gradient
+chemotaxis_VEGF            float    Coefficient: bias toward VEGF gradient
+chemotaxis_chemokine       float    Coefficient: bias toward chemokine gradient
+haptotaxis_ECM             float    Coefficient: bias along ECM gradient
+contact_inhibited          bool     Whether migration stops at confluent neighbors
+
+# Death
+O2_necrosis_threshold_mmHg float    O₂ below which necrosis initiates
+necrosis_delay_hr          float    Hours below threshold before death
+apoptosis_rate_per_hr      float    Spontaneous death probability per hour
+lysis_rate_per_hr          float    Rate at which necrotic cells are cleared
+
+# Metabolism & Secretion
+O2_consumption_amol_hr     float    Oxygen consumption (attomoles per hour)
+glucose_consumption_amol_hr float   Glucose consumption (attomoles per hour)
+VEGF_secretion_amol_hr     float    VEGF production when hypoxic
+lactate_production_amol_hr float    Lactate output (Warburg effect)
+
+# State transitions
+transition_rules           list     Each entry: {condition, target_type, rate_per_hr}
+
+# ecDNA (tumor cells only)
+ecDNA_init_count           int      Starting ecDNA copy number
+ecDNA_cargo                list     Gene names on ecDNA
+ecDNA_segregation_p        float    Per-copy probability of going to daughter (0.5 = random)
+ecDNA_effect_on_division   float    α: proliferation acceleration per log₂(ecDNA)
+ecDNA_effect_on_VEGF       float    β: VEGF secretion multiplier per ecDNA copy
+ecDNA_effect_on_migration  float    δ: migration speed multiplier per ecDNA copy
+ecDNA_effect_on_survival   float    γ: apoptosis resistance per ecDNA copy
+```
+
+### 3.4 Reference Parameter Values
+
+Values below are the **base** per-cell rates from `causanta/simulate/params/default.json`. The publication-scale 6 mm runs use `xlarge_{baseline,reduced,removed}.json` (and their `multiseed_6mm_*_seed{43-46}.json` siblings for the n = 5 reliability sweep), which differ from the default in: domain size (6000 μm), total_hours (300), burnin_hours (40), `O2_blood_mmHg` (40 vs 60), `q_O2_transfer_per_hr` (2 vs 5), `hypoxia_threshold_mmHg` (18 vs 10), tumor `division_time_mean_hr` (24 vs 36), and the explicit `egfr_hypoxia_upregulation` parameter (κ_hyp; default 1.5, swept to 0.5 and 0.0 for the robustness analysis).
+
+**Tissue density and metabolic scaling (v19).** The production param files set `cell_density_per_um2 = 0.002` so the parenchyma is actually populated with all nine cell types (at 0.001 the vascular network alone met the cell budget and no neurons/glia were placed). Because the per-cell O₂/glucose consumption rates in the table below were calibrated for a near-empty domain, a populated parenchyma at that density would drain glucose below the tumor's proliferation threshold and stall tumor growth; the production runs therefore scale the **O₂ and glucose consumption of the parenchymal/vascular types (Neuron, Astrocyte, Oligodendrocyte, Microglia, Endothelial, Pericyte) by 0.5×** (Tumor and Necrotic unchanged). With this scaling a realistically populated tissue and a growing, partially-hypoxic tumor coexist, and the causal benchmark is preserved.
+
+| Parameter | Neuron | Astrocyte | Oligo | Microglia | Endothelial | Pericyte | Tumor |
+|-----------|--------|-----------|-------|-----------|-------------|----------|-------|
+| diameter (μm) | 15±3 | 12±2 | 10±2 | 9±1 | 12±2 | 6±1 | 18±3 |
+| can_divide | no | yes | no | no | yes | no | yes |
+| division_time (hr) | — | 168±24 | — | — | 60±12 | — | 36±8 |
+| migration (μm/hr) | 0 | 3 | 1 | 30 | 10 | 5 | 10 |
+| O₂ consumption (amol/hr) | 30000 | 12000 | 9000 | 6000 | 3000 | 2000 | 72000 |
+| O₂ prolif threshold (mmHg) | — | 10 | 10 | 5 | 8 | 8 | 8 |
+| O₂ necrosis threshold (mmHg) | 2.5 | 2.5 | 2.5 | 1.0 | 2.5 | 2.5 | 2.5 |
+| VEGF secretion (amol/hr) | 0 | 30 | 0 | 0 | 0 | 0 | 600 |
+| apoptosis rate (/hr) | 1e-4 | 1e-4 | 1e-4 | 1e-4 | 1e-4 | 1e-4 | 5e-5 |
+
+---
+
+## 4. Environment Field Model
+
+### 4.1 Substrates and Governing Equation
+
+Each environment field E_k is defined on the environment grid (resolution `env_grid_um`) and evolves via a **reaction-diffusion partial differential equation**:
+
+```
+∂E_k/∂t = D_k ∇²E_k - λ_k E_k + sources(x,t) - sinks(x,t)
+```
+
+where:
+- **D_k** = diffusion coefficient (μm²/hr)
+- **λ_k** = natural decay rate (1/hr)
+- **sources** = supply from vasculature and cell secretion
+- **sinks** = cellular consumption
+
+### 4.2 Primary Fields
+
+| Field | Symbol | Units | D_k (μm²/hr) | λ_k (/hr) | Normal Value | Role |
+|-------|--------|-------|--------------|-----------|--------------|------|
+| Oxygen | O₂ | mmHg | 6.0 × 10⁶ | ~0 | 38 mmHg (~5%) | Proliferation, hypoxia, necrosis, HIF |
+| Glucose | Gluc | mM | 2.4 × 10⁶ | ~0 | 5.0 mM | Metabolic fuel; Warburg effect |
+| VEGF | VEGF | nM | 3.6 × 10⁴ | 0.6 | 0 nM | Angiogenesis trigger |
+| Lactate | Lac | mM | 9.0 × 10⁵ | 0.06 | 1.0 mM | pH proxy; immunosuppressive |
+| ECM density | ECM | [0-1] | 0 (static) | 0 | 0.5 | Migration scaffold; tumor remodeling |
+| Vascular density | Vasc | [0-1] | 0 (static) | 0 | varies | O₂/glucose source; immune entry |
+
+*Note: Diffusion coefficients converted to μm²/hr from standard μm²/min values (×60).*
+
+### 4.3 Environment Grid Record
+
+Each environment grid voxel at position (i, j) stores:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| x_grid | int | Grid column index |
+| y_grid | int | Grid row index |
+| x_um | float | Physical X position (μm) |
+| y_um | float | Physical Y position (μm) |
+| O2 | float | Oxygen partial pressure (mmHg) [0-60] |
+| glucose | float | Glucose concentration (mM) [0-5.5] |
+| VEGF | float | VEGF concentration (nM) [0-100] |
+| lactate | float | Lactate concentration (mM) [0-40] |
+| ECM_density | float | Extracellular matrix density [0-1] |
+| vascular_density | float | Local vessel density [0-1] |
+| pH | float | Derived: 7.4 - 0.02 × lactate |
+| is_occupied | bool | Whether a cell occupies this voxel center |
+| occupant_cell_id | int | cell_id of occupant (-1 if empty) |
+| occupant_type | int | Cell type of occupant (-1 if empty) |
+
+### 4.4 Source and Sink Terms
+
+**Oxygen supply from vasculature:**
+```
+source_O2(x) = q_O2 × vasc_density(x) × (O2_blood - O2(x))
+```
+where `O2_blood` = 60 mmHg, `q_O2` is a transfer coefficient (hr⁻¹).
+
+**Oxygen consumption by cells:**
+```
+sink_O2(x) = Σ_c O2_consumption_c × δ(x - x_c) / V_voxel
+```
+where the sum runs over cells c located within the voxel, and V_voxel = (env_grid_um)² is the voxel area.
+
+**VEGF secretion (hypoxia-dependent):**
+```
+source_VEGF(x) = Σ_c VEGF_rate_c × H(θ_hypoxia - O2(x_c)) × δ(x - x_c) / V_voxel
+```
+where H is the Heaviside function.
+
+**Glucose** follows the same source/sink pattern as oxygen. **Lactate** is produced by tumor cells proportional to glucose consumption (Warburg effect).
+
+### 4.5 Boundary Conditions
+
+**Dirichlet (fixed value)** at domain edges, representing surrounding normal tissue:
+- O₂ = 38 mmHg
+- Glucose = 5.0 mM
+- VEGF = 0 nM
+- Lactate = 1.0 mM
+
+### 4.6 Numerical Diffusion Scheme
+
+**Implicit Locally One-Dimensional (LOD) operator splitting**, solving each spatial direction via the Thomas algorithm (tridiagonal matrix solve):
+
+For each substrate, within each 1-hour time step, diffusion is sub-stepped at `dt_diffusion` (configurable, default 6 seconds = 0.1 min):
+
+1. **X-sweep**: solve tridiagonal system implicit in x for each row
+2. **Y-sweep**: solve tridiagonal system implicit in y for each column
+3. **Apply source/sink terms** as a separate operator step
+4. **Enforce boundary conditions**
+5. **Clamp values** to physical ranges
+
+The implicit scheme is **unconditionally stable** — no CFL constraint on `dt_diffusion`, allowing large sub-steps even with oxygen's high diffusion coefficient.
+
+---
+
+## 5. Cell Behavioral Rules
+
+All rates in this section are **per hour** unless otherwise noted.
+
+### 5.1 Proliferation (Mitosis)
+
+For each cell c whose type permits division, at each time step:
+
+**1. Resource gate:**
+```
+can_proliferate = (O2_local > O2_prolif_threshold)
+                  AND (glucose_local > glucose_prolif_threshold)
+                  AND (generation < max_generations OR max_generations == -1)
+                  AND (at least one adjacent position unoccupied)
+```
+
+**2. Cell cycle progression:**
+
+Phase durations are fractions of the total division time T (drawn once per cycle from Normal(mean, std)):
+- G1: 0.40 × T
+- S: 0.30 × T
+- G2: 0.15 × T
+- M: 0.15 × T
+
+`cycle_clock_hr` advances by 1 (the time step) each hour. Phase transitions occur when accumulated time exceeds phase duration. If resources drop below threshold during S/G2/M, the cell arrests (clock pauses, does not revert).
+
+**3. Division (M phase completion):**
+- Select a random unoccupied position adjacent to the parent (8-connected neighborhood)
+- If no position available → cell enters G0 (contact inhibition), clock pauses
+- If position available:
+  - Create daughter cell with new `cell_id`, `parent_id` = parent's `cell_id`
+  - Daughter placed at selected position
+  - Both cells reset `cycle_clock_hr = 0`, enter G1
+  - `generation` incremented for both cells
+
+**4. ecDNA segregation (the SIV mechanism):**
+
+For parent with `ecDNA_count = N`:
+```
+daughter_ecDNA = Binomial(N, p)    where p = ecDNA_segregation_p (default 0.5)
+parent_ecDNA   = N - daughter_ecDNA
+```
+
+This binomial partitioning is the core mechanism that generates inter-cell ecDNA heterogeneity — creating the "natural experiment" that enables causal inference. The randomness of segregation satisfies the **independence assumption** required for instrumental variable analysis.
+
+**5. ecDNA modulation of cell behavior:**
+
+The phenotype modulators act on **EGFR expression X** (the exposure), not directly on ecDNA copy number (the instrument). ecDNA enters only through `X = (X_base + κ·ecDNA)·(1 + κ_hyp·is_hypoxic)·noise` (X_base = 2.89, κ = 1.21, κ_hyp ∈ {1.5, 0.5, 0.0}; implemented in `ecdna.py`), so the chain is ecDNA → EGFR → phenotype:
+
+```
+division_time_effective  = division_time_base / (1 + α × log₂(1 + EGFR))
+VEGF_secretion_effective = VEGF_secretion_base × (1 + β × √EGFR) × (0.2 + 0.8 × is_hypoxic)
+migration_effective      = migration_base × (1 + δ × EGFR) × (2.0 if is_hypoxic else 1.0)
+apoptosis_effective      = apoptosis_base / (1 + γ × log₂(1 + EGFR))
+```
+
+By default δ is a single constant for all tumor cells. An optional mode
+(`ecDNA_migration_spatial = true` on the tumor `CellTypeConfig`) makes δ a step
+function of the cell's distance from the tumor-seed centroid — `δ_core` inside
+`ecDNA_migration_core_radius_um`, `δ_margin` inside `ecDNA_migration_margin_radius_um`,
+and `δ_infiltrating` beyond — so a *known* spatial gradient in the causal effect can
+be embedded and the per-zone 2SLS estimator benchmarked for its ability to recover it
+(see §Results / Figure 5). The mode is off by default, preserving all standard runs.
+
+with ground-truth coefficients α = 0.30, β = 0.10, δ = 0.05, γ = 0.50. The VEGF equation is gated by hypoxia (basal fraction 0.2 under normoxia, full secretion under hypoxia) and the migration equation carries the 2× hypoxic "Go" boost. These are the **ground-truth causal effects** that CAUSANTA embeds in the simulation; the causal discovery algorithms being benchmarked should recover these relationships (ecDNA → EGFR → phenotype) from the simulated spatial data.
+
+### 5.2 Migration
+
+Each hour, motile cells compute a migration vector and move:
+
+**1. Direction:**
+```
+v = v_persist + χ_O2 ∇O₂ + χ_VEGF ∇VEGF + χ_chemo ∇chemokine + χ_ECM ∇ECM + v_noise
+```
+
+- **v_persist** = previous direction × exp(-1/persistence_time), providing directional memory
+- **Gradient terms**: environment fields sampled at cell position, finite-difference gradient over neighboring voxels
+- **v_noise** = uniform random angle perturbation
+
+**2. Displacement:**
+```
+Δx = migration_speed × cos(θ_v) × 1 hr
+Δy = migration_speed × sin(θ_v) × 1 hr
+```
+
+Position updated: `x += round(Δx)`, `y += round(Δy)` (integer μm).
+
+**3. Collision:** If target position is within one cell diameter of another cell, the move is rejected (volume exclusion). The cell may attempt an alternate direction or stay.
+
+**Type-specific behaviors:**
+- **Neurons, Oligodendrocytes:** migration_speed = 0 (sessile)
+- **Astrocytes:** Low motility; increased near tumor margin (reactive astrogliosis)
+- **Microglia:** High motility; strong chemotaxis toward DAMPs from necrotic regions
+- **Tumor:** Moderate motility; biased toward O₂ gradients, along ECM fibers; optional Go-or-Grow coupling: `speed_effective = speed_base × (1 - proliferation_activity)`
+- **Recruited Immune:** Highest motility; chemotaxis toward tumor-secreted chemokines
+- **Pericytes:** Low motility; constrained to remain adjacent to endothelial cells
+
+### 5.3 Cell Death
+
+**Necrosis:** When `O2_local < O2_necrosis_threshold` for `necrosis_delay_hr` consecutive hours:
+- `cell_type` → 8 (Necrotic)
+- Cell remains at position, blocks space, ceases metabolism
+- Cleared stochastically: `P(lysis) = lysis_rate × 1 hr` per time step
+
+**Apoptosis:** At each step:
+- `P(apoptosis) = apoptosis_rate_per_hr × 1 hr`
+- Apoptotic cells removed from grid immediately
+
+**Immune-mediated kill:** When a recruited immune cell or activated microglia is within `kill_radius` of a tumor cell:
+- `P(kill) = kill_rate × activation_level × 1 hr`
+
+### 5.4 Cell Type Transitions
+
+| From | Trigger Condition | To | Rate (per hr) |
+|------|-------------------|-----|---------------|
+| Astrocyte | Adjacent to tumor cell | Reactive Astrocyte (subtype flag) | 0.01 |
+| Microglia | Local chemokine > threshold | Activated Microglia (subtype flag) | 0.05 |
+| Activated Microglia | Local TGF-β > threshold | Immunosuppressed Microglia | 0.02 |
+| Endothelial | Local VEGF > angio_threshold | Sprouting Endothelial (subtype flag) | 0.01 |
+| Any living cell | O₂ < necrosis threshold (sustained) | Necrotic | deterministic |
+| (vascular source) | Local chemokine > recruit_threshold | Recruited Immune (new cell spawned) | 0.005 |
+
+### 5.5 Angiogenesis
+
+When VEGF exceeds `angiogenesis_threshold_nM` at a position adjacent to an existing endothelial cell:
+
+1. **Tip cell selection:** endothelial cell with highest local VEGF
+2. **Sprouting:** tip cell extends one position per hour up the VEGF gradient; a new endothelial cell is placed at the vacated position (stalk cell)
+3. **Anastomosis:** if tip reaches another vessel, vessels connect
+4. **Maturation:** new vessel positions gradually increase `vascular_density` over `vessel_maturation_hr` hours
+5. **Effect:** new vascular positions become O₂/glucose sources
+
+---
+
+## 6. ecDNA as Somatic Instrumental Variable (SIV)
+
+### 6.1 The Causal Inference Problem
+
+In observational spatial data, associations between molecular features (e.g., gene expression) and cellular phenotypes (e.g., proliferation) are confounded by shared microenvironment. A cell near a vessel has both higher O₂ *and* different gene expression; separating cause from correlation is impossible without randomization.
+
+### 6.2 ecDNA Segregation as Natural Randomization
+
+ecDNA elements segregate during mitosis via a mechanism that is:
+
+1. **Random:** Each ecDNA copy is independently assigned to a daughter cell with probability p ≈ 0.5 (binomial process)
+2. **Heritable:** Daughter cells inherit the randomly assigned count, which then influences their phenotype
+3. **Independent of confounders:** The physical segregation mechanism is not driven by the local microenvironment
+
+This satisfies the three **instrumental variable assumptions**:
+
+| Assumption | Formal Statement | How ecDNA Satisfies It |
+|------------|------------------|------------------------|
+| **Relevance** | Z → D | ecDNA copy number affects EGFR expression (gene dosage) |
+| **Independence** | Z ⊥ U | ecDNA segregation is independent of confounders (Binomial process) |
+| **Exclusion** | Z → Y only through D | ecDNA affects outcomes only through the instrumented gene expression pathway |
+
+### 6.3 Ground-Truth Causal Graph
+
+CAUSANTA embeds a known Structural Causal Model:
+
+```
+                          is_hypoxic (binary HIF indicator, set when O2 < 18 mmHg)
+                       ┌─────────┴───────────┐
+                       │ HIF-2α (κ_hyp)      │ hypoxia gating
+                       ▼                     ▼
+ecDNA_count ──κ──→ EGFR_expression ──→ proliferation, migration, VEGF, survival
+      ▲
+      │
+Binomial(N, 0.5)
+(random segregation; the instrument)
+```
+
+The simulation knows the true causal effect sizes (α, β, γ, δ from §5.1 and the EGFR coupling parameters κ, κ_hyp from §3.4). Causal discovery algorithms operating on the output spatial data should recover this structure. The degree to which they succeed — measured against these known ground-truth edges — constitutes the benchmark. Note that the simulator's EGFR-to-hypoxia coupling is *threshold-mediated*: it uses the binary `is_hypoxic` indicator (1 when O2_local < 18 mmHg, 0 otherwise), not the continuous oxygen field. Discovery in the main manuscript uses `is_hypoxic` as the confounder variable to match this structural form.
+
+### 6.4 Counterfactual Trajectories
+
+CAUSANTA supports **intervention experiments**: at any time point, the user can modify ecDNA status at specific positions and re-run the simulation forward to observe how the tissue evolves differently. Comparing the factual trajectory (observed ecDNA distribution) against counterfactual trajectories (modified ecDNA) quantifies causal effects spatially.
+
+---
+
+## 7. Initialization
+
+### 7.1 Synthetic Initialization (Default Mode)
+
+Normal brain tissue is populated according to biologically realistic proportions for cortical gray matter:
+
+| Cell Type | Fraction | Placement Rule |
+|-----------|----------|----------------|
+| Neuron | 40-50% | Distributed across parenchyma |
+| Astrocyte | 20-30% | Tiled in non-overlapping ~50-100 μm domains |
+| Oligodendrocyte | 10-15% | Interspersed, denser near white matter tracts |
+| Microglia | 5-10% | Scattered uniformly; 5-10% of all glial cells |
+| Endothelial | ~3-5% | Organized as capillary network segments |
+| Pericyte | ~1-2% | Adjacent to endothelial cells |
+
+**Vascular network:** Placed first as a branching capillary pattern with inter-capillary distance of ~100-200 μm. Pericytes assigned to positions adjacent to endothelial cells.
+
+**Tumor seeding:** One or more tumor cells placed at specified coordinates with initial `ecDNA_count`, `ecDNA_cargo`, and cell cycle phase.
+
+**Environment equilibration:** After placing cells and vasculature, the diffusion solver runs for a burn-in period (default 100 hours equivalent) to reach steady-state O₂/glucose fields before the first recorded time step.
+
+### 7.2 Data-Driven Initialization (for Real Data)
+
+Load real spatial data and register to the CAUSANTA coordinate grid:
+
+- **H&E:** Tissue architecture → ECM_density map, cell segmentation → positions and morphology
+- **FISH:** Per-cell ecDNA copy number → `ecDNA_count` per cell
+- **PhenoCycler / CODEX:** Protein panel → cell type classification, positions, protein expression
+- **Visium:** 55 μm spots deconvolved to cell neighborhoods → transcriptomic features per cell
+- **AlphaCycler:** Additional spatial proteomic channels
+
+Environment fields initialized from tissue context (vessel positions from CD31 staining, ECM from collagen markers) rather than synthetic baseline.
+
+---
+
+## 8. Simulation Main Loop
+
+```
+INITIALIZE:
+    1. Load parameters from JSON configuration file
+    2. Create environment grid at specified resolution
+    3. Initialize environment fields to baseline values
+    4. Place vascular network (synthetic or from data)
+    5. Populate with normal cell types at specified proportions
+    6. Seed tumor cell(s) at specified position(s)
+    7. Equilibrate environment fields (burn-in diffusion)
+    8. Write initial state: cells_t000000.tsv, environment_t000000.tsv
+    9. Copy parameter JSON to output directory
+
+FOR each time step t = 1, 2, ..., T_total:
+
+    PHASE 1: ENVIRONMENT DIFFUSION
+        For each diffusion sub-step within the 1-hour main step:
+            For each substrate (O₂, glucose, VEGF, lactate):
+                a. Compute source terms (vascular supply, cell secretion)
+                b. Compute sink terms (cell consumption)
+                c. Solve diffusion via implicit LOD (Thomas algorithm)
+                d. Apply natural decay (λ_k)
+                e. Enforce boundary conditions and physical range clamps
+        Compute derived fields (pH from lactate, hypoxia flags)
+
+    PHASE 2: CELL BEHAVIOR (cells processed in random-shuffled order)
+        For each living cell c:
+            a. Sample local environment via bilinear interpolation
+            b. Update is_hypoxic, is_quiescent flags
+            c. Death check:
+               - Necrosis: O₂ below threshold for required duration?
+               - Apoptosis: stochastic roll
+            d. State transition check (Table 5.4)
+            e. Proliferation:
+               - Advance cell cycle clock
+               - If M-phase complete and space available:
+                   Execute division, partition ecDNA binomially
+                   Create daughter with new cell_id, parent_id
+            f. Migration:
+               - Compute direction (gradients + persistence + noise)
+               - Compute displacement (speed × 1 hr)
+               - Attempt move (volume exclusion check)
+
+    PHASE 3: ANGIOGENESIS
+        For each endothelial cell with adjacent VEGF > threshold:
+            Attempt sprouting (Section 5.5)
+
+    PHASE 4: IMMUNE RECRUITMENT
+        For each vascular position with chemokine > threshold:
+            Stochastic spawn of recruited immune cell
+
+    PHASE 5: CLEANUP
+        Stochastic lysis of necrotic cells
+        Update environment grid occupancy
+
+    PHASE 6: OUTPUT (at configured interval)
+        Write cells_t{step:06d}.tsv
+        Write environment_t{step:06d}.tsv
+        Write summary statistics to log
+        Append division events to lineage.tsv
+```
+
+---
+
+## 9. Output Specification
+
+### 9.1 Directory Structure
+
+Each simulation run produces a timestamped output directory:
+
+```
+output/
+  run_20260410_143022/
+    params.json              # Complete parameter file (frozen copy)
+    cells_t000000.tsv        # Initial cell state
+    cells_t000001.tsv        # t = 1 hour
+    cells_t000002.tsv        # t = 2 hours
+    ...
+    environment_t000000.tsv  # Initial environment
+    environment_t000001.tsv
+    ...
+    summary.log              # Per-step statistics (cell counts, mean O₂, etc.)
+    lineage.tsv              # Complete parent-child lineage table
+```
+
+### 9.2 Cells File Format (TSV)
+
+**Filename:** `cells_t{step:06d}.tsv`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| cell_id | int | Unique cell identifier |
+| parent_id | int | Parent cell ID (-1 for initial cells) |
+| cell_type | int | Type code (0-8) |
+| cell_type_name | string | Human-readable type |
+| x | int | X position in μm |
+| y | int | Y position in μm |
+| angle | float | Orientation (radians) |
+| shape_path | string | SVG path string |
+| size_scale | float | Scale factor for shape rendering |
+| cell_cycle_phase | string | G0, G1, S, G2, or M |
+| ecDNA_count | int | ecDNA copy number |
+| ecDNA_cargo | string | Semicolon-delimited gene list |
+| O2_local | float | Local oxygen (mmHg) |
+| glucose_local | float | Local glucose (mM) |
+| is_hypoxic | bool | True/False |
+| is_quiescent | bool | True/False |
+| generation | int | Divisions from ancestor |
+| time_born_hr | float | Hour when cell was created |
+| migration_rate | float | Current effective speed (μm/hr) |
+| VEGF_secretion | float | Current VEGF output (amol/hr) |
+
+### 9.3 Environment File Format (TSV)
+
+**Filename:** `environment_t{step:06d}.tsv`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| x_grid | int | Grid column index |
+| y_grid | int | Grid row index |
+| x_um | float | X in μm |
+| y_um | float | Y in μm |
+| O2 | float | Oxygen (mmHg) |
+| glucose | float | Glucose (mM) |
+| VEGF | float | VEGF (nM) |
+| lactate | float | Lactate (mM) |
+| pH | float | Derived pH |
+| ECM_density | float | ECM [0-1] |
+| vascular_density | float | Vessel density [0-1] |
+| is_occupied | bool | Cell present? |
+| occupant_cell_id | int | cell_id or -1 |
+| occupant_type | int | Cell type or -1 |
+
+### 9.4 Lineage File
+
+**Filename:** `lineage.tsv`
+
+Append-only file recording every division event:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| time_hr | float | Hour of division |
+| parent_id | int | Dividing cell's ID |
+| parent_ecDNA_before | int | Parent ecDNA count before division |
+| parent_ecDNA_after | int | Parent ecDNA count after segregation |
+| daughter_id | int | New daughter cell's ID |
+| daughter_ecDNA | int | Daughter ecDNA count |
+| x | int | Position of division (μm) |
+| y | int | Position of division (μm) |
+| generation | int | Generation number of daughter |
+
+---
+
+## 10. Visualization
+
+### 10.1 Rendering Pipeline (Vega.js)
+
+The cells TSV is loaded directly into a Vega specification where each cell is rendered as a `path` mark:
+
+1. Read `shape_path` as the Vega path datum
+2. Apply transform: scale by `size_scale × (diameter/2)`, rotate by `angle`, translate to `(x, y)`
+3. Color by `cell_type` using the type color palette
+4. Opacity modulated by state (e.g., necrotic cells at 0.3 opacity, hypoxic at 0.7)
+
+### 10.2 Environment Overlay
+
+The environment TSV renders as a `rect` grid heatmap behind the cell layer:
+- Channel selectable: O₂, glucose, VEGF, lactate, pH, ECM, vascular density
+- Color scale: sequential (e.g., viridis for O₂, magma for VEGF)
+- Opacity adjustable to see cells through environment
+
+### 10.3 Interactive Features
+
+- **Time slider:** scrub through simulation steps
+- **Cell selection:** click cell to see full state vector, lineage tree
+- **Layer toggles:** show/hide cell types, environment channels
+- **Zoom:** pan and zoom across the tissue section
+- **ecDNA highlight mode:** cells colored by ecDNA_count (continuous scale)
+
+---
+
+## 11. Core Mathematical Relationships
+
+| Process | Equation | Key Parameters |
+|---------|----------|----------------|
+| Diffusion | ∂E/∂t = D∇²E − λE + S | D, λ per substrate |
+| O₂ vascular supply | S = q × Vasc × (O₂_blood − O₂) | q = 2 hr⁻¹, O₂_blood = 40 mmHg (6 mm runs); default 60 mmHg |
+| O₂-dependent proliferation | r = r_max × max(0, (O₂ − θ_H)/(O₂_max − θ_H)) | r_max, θ_H |
+| **ecDNA segregation** | daughter_ecDNA ~ Binom(N, p) | N = parent count, p = 0.5 |
+| **ecDNA → division** | T_eff = T_base / (1 + α log₂(1 + ecDNA)) | α (effect size) |
+| **ecDNA → VEGF** | S_eff = S_base × (1 + β × ecDNA) | β |
+| **ecDNA → apoptosis resistance** | a_eff = a_base / (1 + γ × ecDNA) | γ |
+| **ecDNA → migration** | v_eff = v_base × (1 + δ × ecDNA) | δ |
+| VEGF secretion | S_VEGF = r × H(θ_hyp − O₂) | r, θ_hyp |
+| Migration | v = v_persist + χ∇O₂ + χ_ECM∇ECM + noise | χ coefficients |
+| Necrosis | type → Necrotic if O₂ < θ_nec for > T_nec hours | θ_nec, T_nec |
+| Immune kill | P(kill) = k × activation × Δt | k (kill rate) |
+| pH from lactate | pH = 7.4 − 0.02 × [lactate] | empirical approximation |
+
+---
+
+## 12. Validation Targets
+
+The simulation should reproduce these known biological phenomena:
+
+1. **Avascular spheroid zonation:** Proliferating rim (~100-200 μm from vessels), quiescent intermediate zone, necrotic core — matching in vitro spheroid data
+
+2. **Oxygen gradient:** Hypoxia onset at ~100-150 μm from nearest vessel
+
+3. **Pseudopalisading necrosis:** Migrating waves of hypoxic cells around necrotic foci (GBM pathognomonic feature)
+
+4. **ecDNA heterogeneity dynamics:** Inter-cell variance in ecDNA copy number increases with division count, following Var = N × p × (1−p) per generation under binomial segregation
+
+5. **Angiogenic switch:** VEGF accumulation triggers vessel sprouting as tumor mass exceeds ~1-2 mm
+
+6. **Immune exclusion:** High tumor density + immunosuppressive signaling creates immune-cold core with immune cells restricted to tumor periphery
+
+7. **Gompertzian growth:** Tumor growth curve transitions from exponential → linear → plateau as carrying capacity limits and necrosis increase
+
+8. **Causal recoverability:** Causal discovery algorithms applied to output data should recover the ground-truth ecDNA → phenotype causal edges (Section 6.3) at rates significantly above chance
+
+---
+
+## 13. Causal Inference Methods
+
+### 13.1 Two-Stage Least Squares (2SLS)
+
+The primary method for estimating causal effects using ecDNA as an instrument.
+
+**Stage 1 (First Stage):** Predict treatment from instrument
+```
+D_i = π₀ + π₁·Z_i + π₂·X_i + η_i
+D̂_i = π̂₀ + π̂₁·Z_i + π̂₂·X_i
+```
+
+**Stage 2 (Second Stage):** Regress outcome on predicted treatment
+```
+Y_i = β₀ + β₁·D̂_i + β₂·X_i + ε_i
+```
+
+Where:
+- Z_i = ecDNA copy number (instrument)
+- D_i = EGFR expression (endogenous treatment)
+- Y_i = Phenotypic outcome (proliferation, migration, etc.)
+- X_i = Observed covariates (optional)
+
+### 13.2 IV Diagnostics
+
+| Diagnostic | Purpose | Implementation |
+|------------|---------|----------------|
+| **F-statistic** | Instrument strength | F > 10 indicates strong instrument |
+| **Wu-Hausman test** | Endogeneity detection | Tests if OLS and IV differ significantly |
+| **Anderson-Rubin CI** | Weak-IV robust inference | Valid even with weak instruments |
+| **Rosenbaum bounds** | Sensitivity to hidden confounding | How much confounding could explain away effect |
+| **E-value** | Minimum confounding strength | RR + sqrt(RR × (RR − 1)) |
+
+### 13.3 Bootstrap Confidence Intervals
+
+BCa (Bias-Corrected and Accelerated) bootstrap for IV estimates:
+
+1. Resample (Z_i, D_i, Y_i) with replacement
+2. Run full 2SLS procedure
+3. Repeat B times (default 1000)
+4. Compute bias correction and acceleration factors
+5. Return adjusted percentile CI
+
+### 13.4 Power Analysis
+
+**Required sample size** for target power at effect size β:
+```
+n ≈ (z_{1-α/2} + z_{1-β})² × σ² / (β² × R²_first × Var(Z))
+```
+
+**Minimum detectable effect** given sample size:
+```
+MDE = (z_{1-α/2} + z_{1-β}) × SE_IV
+```
+
+### 13.5 Heterogeneity Analysis
+
+Stratified IV estimation by:
+- **Region:** Core (<100μm), Margin (100-300μm), Infiltrating (>300μm)
+- **Hypoxia:** Normoxic (>20 mmHg), Mild (10-20), Severe (<10)
+- **ecDNA burden:** Low (<10), Medium (10-30), High (>30)
+
+Cochran's Q test and I² statistic assess heterogeneity across strata.
+
+---
+
+## 14. Implementation Architecture
+
+### 14.1 Module Structure
+
+```
+causanta/
+├── simulate/
+│   ├── core.py           # Main simulation loop orchestration
+│   ├── cells.py          # Cell agent class, state vector, type parameters
+│   ├── behaviors.py      # Proliferation, migration, death, transitions
+│   ├── environment.py    # Environment fields, diffusion solver (LOD/Thomas)
+│   ├── ecdna.py          # ecDNA segregation, modulation effects (SIV mechanism)
+│   ├── angiogenesis.py   # Vascular sprouting logic
+│   ├── initialization.py # Synthetic and data-driven tissue setup
+│   ├── sweep.py          # Parameter sweep system
+│   ├── config.py         # JSON parameter loading and validation
+│   ├── domain.py         # Grid, coordinate system, boundary conditions
+│   ├── io.py             # TSV/JSON reading and writing
+│   └── visualization.py  # Vega.js spec generation
+│
+├── analyze/
+│   ├── iv.py             # 2SLS estimation + diagnostics
+│   ├── effects.py        # Causal effect estimation wrapper
+│   ├── bootstrap.py      # BCa confidence intervals
+│   ├── power.py          # Power analysis
+│   ├── heterogeneity.py  # Stratified IV analysis
+│   ├── loader.py         # Data loading utilities
+│   └── discovery.py      # Causal structure learning (PC, GES)
+│
+├── visualize/
+│   ├── nature_style.py   # Publication styling
+│   └── causal_figures.py # Figure generation
+│
+└── graph/
+    └── causal_dag.py     # DAG construction and visualization
+```
+
+### 14.2 Dependencies
+
+- Python ≥ 3.10
+- NumPy ≥ 1.21
+- SciPy ≥ 1.7
+- Matplotlib ≥ 3.5
+- (Optional) causal-learn for PC/GES algorithms
+- (Optional) Numba for JIT-compiled kernels
+
+### 14.3 Performance Strategy
+
+Core simulation loop in Python (NumPy for environment field operations). If profiling reveals bottlenecks, migrate diffusion solver and cell iteration to Cython, Rust (via PyO3), or C extensions. The 100×100 environment grid with ~5,000-50,000 cells is well within pure-Python/NumPy performance for exploratory work.
+
+| Study Type | Estimated Runtime | Memory |
+|------------|------------------|--------|
+| Single simulation (200hr) | ~5 min | ~500 MB |
+| Baseline validation (20 reps) | ~2 hr | ~1 GB |
+| Full parameter sweep | ~8-24 hr | ~2 GB |
+| Bootstrap (1000 samples) | ~30 min | ~500 MB |
+
+---
+
+## References
+
+1. Angrist JD, Pischke JS. *Mostly Harmless Econometrics*. Princeton, 2009.
+2. Efron B, Tibshirani RJ. *An Introduction to the Bootstrap*. Chapman & Hall, 1993.
+3. Rosenbaum PR. *Observational Studies*. Springer, 2002.
+4. VanderWeele TJ, Ding P. Sensitivity analysis in observational research. *Ann Intern Med* 2017.
+5. Spirtes P, Glymour C, Scheines R. *Causation, Prediction, and Search*. MIT Press, 2000.
+6. Staiger D, Stock JH. Instrumental variables regression with weak instruments. *Econometrica* 1997.
+7. Turner KM, et al. Extrachromosomal oncogene amplification drives tumour evolution and genetic heterogeneity. *Nature* 2017.
+8. Wu S, et al. Circular ecDNA promotes accessible chromatin and high oncogene expression. *Nature* 2019.
+
+---
+
+*CAUSANTA Theoretical Framework v1.0*
+*For collaboration and review*

@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAUSANTA — How the Simulation Works (Section → Tissue → Cell)</title>
+<style>
+ body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#fafafa;color:#222}
+ header{padding:14px 22px;background:#1b2a4a;color:#fff}
+ header h1{margin:0 0 4px;font-size:20px} header p{margin:0;font-size:13px;opacity:.92;max-width:1080px}
+ header code{background:rgba(255,255,255,.15);padding:1px 5px;border-radius:4px}
+ #bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:10px 22px;background:#fff;border-bottom:1px solid #e2e2e2;position:sticky;top:0;z-index:5}
+ #bar .grp{display:flex;align-items:center;gap:6px;font-size:13px}
+ button{font:inherit;padding:5px 11px;border:1px solid #bbb;border-radius:6px;background:#f4f4f4;cursor:pointer}
+ button:hover{background:#e8e8e8} button.play{background:#1b2a4a;color:#fff;border-color:#1b2a4a;min-width:74px}
+ input[type=range]{width:230px;cursor:grab} label.tog{user-select:none;cursor:pointer}
+ #panels{display:flex;gap:14px;flex-wrap:wrap;padding:16px 18px;align-items:flex-start}
+ .panel{background:#fff;border:1px solid #e2e2e2;border-radius:10px;padding:10px 12px;flex:1 1 320px;min-width:300px}
+ .panel h2{margin:0 0 2px;font-size:15px} .panel .sub{margin:0 0 8px;font-size:12px;color:#666;min-height:30px}
+ .panel .scale{font-size:11px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+ svg{display:block;width:100%;height:auto;background:#fff;border-radius:6px}
+ .arrow{flex:0 0 26px;align-self:center;text-align:center;color:#1b2a4a;font-size:26px;font-weight:800}
+ #legend{display:flex;flex-wrap:wrap;gap:4px 16px;padding:4px 22px 14px;font-size:12px}
+ #legend .it{display:flex;align-items:center;gap:6px}
+ .sw{width:13px;height:13px;border-radius:50%;display:inline-block;border:1px solid rgba(0,0,0,.25)}
+ #loop{display:flex;gap:6px;flex-wrap:wrap;padding:4px 22px 18px;align-items:center;font-size:12px}
+ .ph{padding:4px 9px;border:1px solid #ccd;border-radius:14px;background:#f1f3f7;color:#445}
+ .ph.on{background:#1b2a4a;color:#fff;border-color:#1b2a4a;font-weight:700}
+ .tip{position:fixed;pointer-events:none;background:#1b2a4a;color:#fff;font-size:12px;padding:5px 8px;border-radius:6px;opacity:0;transition:opacity .08s;z-index:20;max-width:230px}
+ .gauge{font-size:11px}
+ .zoneTag{font-weight:700}
+</style></head><body>
+<header>
+ <h1>CAUSANTA — how the simulation works <span style="font-weight:400;font-size:14px">(drag the time slider; move the magnifier; click a tumor cell)</span></h1>
+ <p>An agent-based glioblastoma section is grown on a reaction–diffusion microenvironment. Zoom from the whole
+ <b>section</b> → a <b>tissue</b> neighborhood → a single <b>cell</b>. ecDNA is the somatic instrument: random
+ mitotic segregation sets each tumor cell's <code>EGFR</code>, which drives division, VEGF, migration and survival;
+ hypoxia (O₂ &lt; 18 mmHg) confounds them. Vessels feed O₂, VEGF sprouts new vessels, immune cells infiltrate and
+ kill, and diffusion-limited cores go necrotic.</p>
+</header>
+
+<div id="bar">
+ <div class="grp"><button id="play" class="play">▶ Play</button>
+   <span>t = <b id="tlabel">0</b> h</span>
+   <input id="time" type="range" min="0" max="300" step="1" value="0"></div>
+ <div class="grp">
+   <label class="tog"><input type="checkbox" id="t_o2" checked> O₂ field</label>
+   <label class="tog"><input type="checkbox" id="t_vegf"> VEGF field</label>
+   <label class="tog"><input type="checkbox" id="t_vessel" checked> vessels</label>
+   <label class="tog"><input type="checkbox" id="t_immune" checked> immune</label>
+   <label class="tog"><input type="checkbox" id="t_label" checked> labels</label>
+ </div>
+</div>
+
+<div id="panels">
+ <div class="panel" id="pSection">
+   <div class="scale">scale 1 · ~6 mm</div><h2>Section</h2>
+   <p class="sub" id="secSub">The whole simulated tumor section. Drag the white box to choose a neighborhood.</p>
+   <svg id="svgSection" viewBox="0 0 520 520"></svg>
+ </div>
+ <div class="arrow">⟶</div>
+ <div class="panel" id="pTissue">
+   <div class="scale">scale 2 · ~400 µm</div><h2>Tissue neighborhood</h2>
+   <p class="sub">Zone: <span class="zoneTag" id="zoneTag">—</span> · <span id="zoneDesc">drag the magnifier on the section to pick a neighbourhood.</span></p>
+   <svg id="svgTissue" viewBox="0 0 520 420"></svg>
+ </div>
+ <div class="arrow">⟶</div>
+ <div class="panel" id="pCell">
+   <div class="scale">scale 3 · ~20 µm</div><h2>Single tumor cell</h2>
+   <p class="sub" id="cellSub">Click a tumor cell in the tissue panel. ecDNA → EGFR → phenotype.</p>
+   <svg id="svgCell" viewBox="0 0 520 420"></svg>
+ </div>
+</div>
+
+<div id="legend"></div>
+<div id="loop"><b style="color:#1b2a4a">Per-step loop&nbsp;(0.5 h):</b></div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+"use strict";
+/* ---------- constants grounded in the simulator ---------- */
+const COL = {Neuron:"#4477AA",Astrocyte:"#66CCEE",Oligodendrocyte:"#228833",Microglia:"#EE6677",
+  Endothelial:"#AA3377",Pericyte:"#BBBBBB",Tumor:"#CCBB44",RecruitedImmune:"#EE8866",Necrotic:"#555555"};
+const ROLE = {Neuron:"parenchyma (post-mitotic)",Astrocyte:"parenchyma (reactive glia)",
+  Oligodendrocyte:"parenchyma (myelinating)",Microglia:"resident immune",Endothelial:"vessel wall",
+  Pericyte:"vessel support (BBB)",Tumor:"ecDNA-bearing tumor",RecruitedImmune:"infiltrating T/NK cell",
+  Necrotic:"dead (hypoxic core)"};
+const FINAL = {Tumor:11259,Endothelial:5297,Pericyte:1270,Neuron:565,Necrotic:439,
+  RecruitedImmune:393,Astrocyte:311,Oligodendrocyte:152,Microglia:89};
+const TYPES = ["Neuron","Astrocyte","Oligodendrocyte","Microglia","Endothelial","Pericyte","Tumor","RecruitedImmune","Necrotic"];
+const SC = {X_BASE:2.89,KAPPA:1.21,KHYP:1.5,T_BASE:24,VEGF_BASE:600,MIGR_BASE:10,
+  alpha:0.30,beta:0.10,delta:0.05,gamma:0.50,O2_HYP:18};
+const PHASES = ["1 · Environment diffusion (O₂/glucose/VEGF/lactate)","2 · Cell behaviours (divide · migrate · die)",
+  "3 · Angiogenesis (VEGF → vessel sprouting)","4 · Immune recruitment & killing","5 · Cleanup (necrosis)","6 · Output (cells · lineage)"];
+
+/* ---------- seeded RNG so layout is stable across frames ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const SEC={cx:260,cy:260,Rmax:180};
+
+/* ---------- generate static agent pools for the SECTION ---------- */
+function genSection(){
+  const rng=mulberry32(7);
+  const tumor=[], imm=[], paren=[];
+  for(let i=0;i<900;i++){const rn=Math.sqrt(rng()), a=rng()*2*Math.PI;
+    tumor.push({rn, a, x:SEC.cx+Math.cos(a)*rn*SEC.Rmax, y:SEC.cy+Math.sin(a)*rn*SEC.Rmax});}
+  for(let i=0;i<160;i++){const rn=0.7+rng()*0.45, a=rng()*2*Math.PI;
+    imm.push({rn,a,birth:70+rng()*150, x:SEC.cx+Math.cos(a)*rn*SEC.Rmax, y:SEC.cy+Math.sin(a)*rn*SEC.Rmax});}
+  // parenchyma fills the whole field; hidden where tumor has grown
+  const pTypes=["Neuron","Neuron","Astrocyte","Oligodendrocyte","Microglia"];
+  for(let i=0;i<620;i++){const x=rng()*520,y=rng()*520, t=pTypes[(rng()*pTypes.length)|0];
+    paren.push({x,y,t,d:Math.hypot(x-SEC.cx,y-SEC.cy)});}
+  // vessels: base network (always) + tumor-induced sprouts (appear over time)
+  const ves=[];
+  for(let i=0;i<9;i++){const a=rng()*2*Math.PI, x0=SEC.cx+Math.cos(a)*230, y0=SEC.cy+Math.sin(a)*230;
+    const seg=[{x:x0,y:y0}]; let x=x0,y=y0;
+    for(let k=0;k<7;k++){const tx=SEC.cx+(rng()-0.5)*60, ty=SEC.cy+(rng()-0.5)*60;
+      x+=(tx-x)*0.3+(rng()-0.5)*26; y+=(ty-y)*0.3+(rng()-0.5)*26; seg.push({x,y});}
+    ves.push({pts:seg, sprout:i<4?0:60+rng()*160});}
+  return {tumor,imm,paren,ves};
+}
+const A=genSection();
+
+/* ---------- time-dependent geometry ---------- */
+const tumRadius=t=>SEC.Rmax*Math.pow(t/300,0.8);
+const necRadius=t=>Math.max(0, tumRadius(t)-58);          // diffusion-limited oxygenated rim ~58px
+const immActive=t=>Math.max(0,(t-60)/240);
+
+let state={t:0,playing:false,phase:0,
+  tog:{o2:true,vegf:false,vessel:true,immune:true,label:true},
+  mag:{x:SEC.cx+88,y:SEC.cy+18},                           // magnifier centre — proliferating margin by default
+  sel:{ecDNA:24,hyp:true}};
+
+/* ---------- helpers ---------- */
+const NS="http://www.w3.org/2000/svg";
+function el(tag,attr){const e=document.createElementNS(NS,tag);for(const k in attr)e.setAttribute(k,attr[k]);return e;}
+function clear(s){while(s.firstChild)s.removeChild(s.firstChild);}
+const tip=document.getElementById('tip');
+function showTip(ev,html){tip.innerHTML=html;tip.style.opacity=1;tip.style.left=(ev.clientX+12)+'px';tip.style.top=(ev.clientY+12)+'px';}
+function hideTip(){tip.style.opacity=0;}
+
+/* zone classification by distance from tumour centre at current t */
+function zoneOf(px,py,t){
+  const d=Math.hypot(px-SEC.cx,py-SEC.cy), R=tumRadius(t), rN=necRadius(t);
+  if(R<6) return "normal";
+  if(d<rN) return "core";
+  if(d<R*0.82) return "interior";
+  if(d<R*1.05) return "margin";
+  return "normal";
+}
+const ZONE={core:{tag:"Necrotic core — O₂≈0",desc:"Beyond the diffusion limit: cells have died and become necrotic debris. ecDNA persists but no live signalling."},
+ interior:{tag:"Hypoxic interior — O₂ < 18 mmHg",desc:"Hypoxic tumour. HIF upregulates EGFR (the confounder κ_hyp) and VEGF; some immune cells, scattered necrosis."},
+ margin:{tag:"Proliferating margin — well-oxygenated",desc:"Vessel-fed rim: tumour cells divide fastest, VEGF sprouts new vessels, infiltrating immune cells form lethal synapses."},
+ normal:{tag:"Normal parenchyma",desc:"Brain tissue ahead of the tumour: neurons, astrocytes, oligodendrocytes, resident microglia, and the native vasculature."}};
+
+/* ====================================================== SECTION ====================================================== */
+function drawSection(){
+  const s=document.getElementById('svgSection'); clear(s);
+  const t=state.t, R=tumRadius(t), rN=necRadius(t);
+  // O2 / VEGF field backdrop (radial)
+  const defs=el('defs');
+  const g=el('radialGradient',{id:'o2g',cx:'50%',cy:'50%',r:'50%'});
+  if(state.tog.o2){ // red (hypoxic) core -> blue (oxygenated) outside
+    g.appendChild(el('stop',{offset:'0%','stop-color':'#c0392b','stop-opacity':'0.40'}));
+    g.appendChild(el('stop',{offset:(Math.max(4,(rN/SEC.Rmax*100)))+'%','stop-color':'#e67e22','stop-opacity':'0.30'}));
+    g.appendChild(el('stop',{offset:(Math.min(99,(R/SEC.Rmax*100)))+'%','stop-color':'#3498db','stop-opacity':'0.16'}));
+    g.appendChild(el('stop',{offset:'100%','stop-color':'#3498db','stop-opacity':'0.05'}));
+  }
+  defs.appendChild(g); s.appendChild(defs);
+  if(state.tog.o2 && R>4){const c=el('circle',{cx:SEC.cx,cy:SEC.cy,r:Math.min(255,R+40),fill:'url(#o2g)'}); s.appendChild(c);}
+  if(state.tog.vegf && R>20){const c=el('circle',{cx:SEC.cx,cy:SEC.cy,r:R*0.85,fill:'#27ae60','fill-opacity':'0.14'}); s.appendChild(c);}
+  // parenchyma (outside tumour)
+  for(const p of A.paren){ if(Math.hypot(p.x-SEC.cx,p.y-SEC.cy) < R-3) continue;
+    s.appendChild(el('circle',{cx:p.x.toFixed(1),cy:p.y.toFixed(1),r:1.6,fill:COL[p.t],'fill-opacity':.8}));}
+  // vessels
+  if(state.tog.vessel) for(const v of A.ves){ if(t<v.sprout) continue;
+    let d="M"+v.pts.map(p=>p.x.toFixed(1)+","+p.y.toFixed(1)).join(" L");
+    s.appendChild(el('path',{d,fill:'none',stroke:COL.Endothelial,'stroke-width':1.6,'stroke-opacity':.7,'stroke-linecap':'round'}));}
+  // tumour + necrotic
+  for(const c of A.tumor){const rr=c.rn*SEC.Rmax; if(rr>R) continue;
+    const nec=rr<rN;
+    s.appendChild(el('circle',{cx:c.x.toFixed(1),cy:c.y.toFixed(1),r:nec?2.0:2.2,
+      fill:nec?COL.Necrotic:COL.Tumor,'fill-opacity':nec?.7:.9}));}
+  // immune
+  if(state.tog.immune){const frac=immActive(t);
+    for(const m of A.imm){ if(t<m.birth) continue; if(m.rn*SEC.Rmax>R*1.05) continue;
+      s.appendChild(el('circle',{cx:m.x.toFixed(1),cy:m.y.toFixed(1),r:2.6,fill:COL.RecruitedImmune,stroke:'#a33',
+        'stroke-width':.5}));}}
+  // magnifier box
+  const mw=70,mh=Math.round(70*420/520);
+  const box=el('rect',{x:(state.mag.x-mw/2).toFixed(1),y:(state.mag.y-mh/2).toFixed(1),width:mw,height:mh,
+    fill:'none',stroke:'#111','stroke-width':2,'stroke-dasharray':'4 3',rx:4,style:'cursor:grab'});
+  box.id='magbox'; s.appendChild(box);
+  s.appendChild(el('text',{x:(state.mag.x).toFixed(1),y:(state.mag.y-mh/2-4).toFixed(1),'text-anchor':'middle',
+    'font-size':10,fill:'#111','font-weight':700})).textContent="neighbourhood";
+  // section caption
+  document.getElementById('secSub').innerHTML=`Whole section at <b>t = ${t} h</b>: tumour radius grows, a necrotic core forms once it outstrips diffusion, vessels sprout, immune cells infiltrate. Drag the dashed box.`;
+  enableMagDrag(s,mw,mh);
+}
+
+let magDragWired=false;
+function enableMagDrag(svg,mw,mh){
+  if(magDragWired) return; magDragWired=true;
+  function toSvg(ev){const r=svg.getBoundingClientRect();return {x:(ev.clientX-r.left)*(520/r.width),y:(ev.clientY-r.top)*(520/r.height)};}
+  let drag=false;
+  svg.addEventListener('mousedown',e=>{const p=toSvg(e);
+    if(Math.abs(p.x-state.mag.x)<mw && Math.abs(p.y-state.mag.y)<mh){drag=true;}});
+  window.addEventListener('mousemove',e=>{if(!drag)return;const p=toSvg(e);
+    state.mag.x=Math.max(20,Math.min(500,p.x));state.mag.y=Math.max(20,Math.min(500,p.y));renderTissue();drawSection();});
+  window.addEventListener('mouseup',()=>drag=false);
+}
+
+/* ====================================================== TISSUE ====================================================== */
+function genTissue(zone,t){
+  const rng=mulberry32(((state.mag.x|0)*131+(state.mag.y|0)*17+zone.length)>>>0);
+  const cells=[]; const W=520,H=420;
+  const add=(type,n,opt={})=>{for(let i=0;i<n;i++){cells.push({t:type,
+    x:30+rng()*(W-60),y:30+rng()*(H-60),
+    r:({Tumor:9,RecruitedImmune:13,Necrotic:9,Endothelial:6,Pericyte:6,Neuron:11,Astrocyte:9,Oligodendrocyte:8,Microglia:12})[type],
+    ecDNA: type==='Tumor'? Math.max(2,Math.round((zone==='margin'?28:zone==='interior'?34:20)+(rng()-0.5)*20)) : 0,
+    hyp: (zone==='interior'||zone==='core')});}};
+  if(zone==='core'){ add('Necrotic',46); add('Tumor',6); add('Microglia',2); }
+  else if(zone==='interior'){ add('Tumor',40); add('Necrotic',12); add('RecruitedImmune', state.tog.immune?5:0); add('Endothelial',4); add('Pericyte',3); add('Microglia',3); }
+  else if(zone==='margin'){ add('Tumor',34); add('Endothelial',9); add('Pericyte',7); add('RecruitedImmune', state.tog.immune?9:0); add('Microglia',3); add('Astrocyte',4); add('Necrotic',2); }
+  else { add('Neuron',16); add('Astrocyte',10); add('Oligodendrocyte',9); add('Microglia',4); add('Endothelial',7); add('Pericyte',6); }
+  return cells;
+}
+let _tissueCache=null;
+function getTissue(zone){
+  // Stable cells per (mag position × zone): no flicker when t advances and zone is unchanged.
+  const key=(state.mag.x|0)+'_'+(state.mag.y|0)+'_'+zone;
+  if(_tissueCache && _tissueCache.key===key) return _tissueCache.cells;
+  const cells=genTissue(zone, state.t);
+  _tissueCache={key, cells};
+  return cells;
+}
+function renderTissue(){
+  const s=document.getElementById('svgTissue'); clear(s);
+  const t=state.t, zone=zoneOf(state.mag.x,state.mag.y,t);
+  document.getElementById('zoneTag').textContent=ZONE[zone].tag;
+  document.getElementById('zoneDesc').textContent=ZONE[zone].desc;
+  // O2 backdrop per zone
+  if(state.tog.o2){const col=zone==='core'?'#c0392b':zone==='interior'?'#e67e22':zone==='margin'?'#2ecc71':'#3498db';
+    const op=zone==='normal'?0.08:0.16;
+    s.appendChild(el('rect',{x:0,y:0,width:520,height:420,fill:col,'fill-opacity':op}));}
+  if(state.tog.vegf && (zone==='interior'||zone==='margin')){
+    s.appendChild(el('rect',{x:0,y:0,width:520,height:420,fill:'#27ae60','fill-opacity':0.12}));}
+  const cells=getTissue(zone);
+  // a vessel through oxygenated zones
+  if(state.tog.vessel && (zone==='margin'||zone==='normal'||zone==='interior')){
+    s.appendChild(el('path',{d:'M20,300 C160,250 360,330 500,250',fill:'none',stroke:COL.Endothelial,'stroke-width':7,'stroke-opacity':.5,'stroke-linecap':'round'}));
+    if(state.tog.o2){const rg=el('defs');const g=el('radialGradient',{id:'vo2',cx:'50%',cy:'66%',r:'60%'});
+      g.appendChild(el('stop',{offset:'0%','stop-color':'#3498db','stop-opacity':'0.22'}));
+      g.appendChild(el('stop',{offset:'100%','stop-color':'#3498db','stop-opacity':'0'}));rg.appendChild(g);s.appendChild(rg);
+      s.appendChild(el('circle',{cx:260,cy:280,r:240,fill:'url(#vo2)'}));}
+  }
+  // immune→tumour synapses
+  if(state.tog.immune){const imm=cells.filter(c=>c.t==='RecruitedImmune'), tum=cells.filter(c=>c.t==='Tumor');
+    imm.forEach(m=>{let best=null,bd=1e9; tum.forEach(tc=>{const d=Math.hypot(tc.x-m.x,tc.y-m.y);if(d<bd){bd=d;best=tc;}});
+      if(best&&bd<140){s.appendChild(el('line',{x1:m.x,y1:m.y,x2:best.x,y2:best.y,stroke:'#c0392b','stroke-width':1.4,'stroke-dasharray':'3 2','stroke-opacity':.8}));
+        best.killing=true;}});}
+  // draw cells
+  for(const c of cells){
+    const g=el('circle',{cx:c.x.toFixed(1),cy:c.y.toFixed(1),r:c.r,fill:COL[c.t],
+      stroke:c.killing?'#c0392b':'rgba(0,0,0,.3)','stroke-width':c.killing?2.2:0.7,'fill-opacity':c.t==='Necrotic'?.7:.92,
+      style:c.t==='Tumor'?'cursor:pointer':'default'});
+    g.addEventListener('mousemove',ev=>showTip(ev,`<b>${c.t}</b><br>${ROLE[c.t]}`+
+      (c.t==='Tumor'?`<br>ecDNA ≈ ${c.ecDNA} · ${c.hyp?'hypoxic':'normoxic'}<br><i>click → cell view</i>`:'')+
+      (c.killing?'<br><b style="color:#ffb3a7">⚔ immune synapse</b>':'')));
+    g.addEventListener('mouseleave',hideTip);
+    if(c.t==='Tumor') g.addEventListener('click',()=>{state.sel={ecDNA:c.ecDNA,hyp:c.hyp};drawCell();});
+    s.appendChild(g);
+    if(c.t==='Tumor'){ // tiny ecDNA specks inside
+      const k=Math.min(6,Math.round(c.ecDNA/6));
+      for(let i=0;i<k;i++){const aa=i/k*6.28;s.appendChild(el('circle',{cx:(c.x+Math.cos(aa)*3.3).toFixed(1),cy:(c.y+Math.sin(aa)*3.3).toFixed(1),r:1.1,fill:'#7a5c00'}));}
+    }
+    if(state.tog.label && c.r>=11){s.appendChild(el('text',{x:c.x,y:c.y-c.r-2,'text-anchor':'middle','font-size':9,fill:'#333'})).textContent=c.t;}
+  }
+}
+
+/* ====================================================== CELL ====================================================== */
+function drawCell(){
+  const s=document.getElementById('svgCell'); clear(s);
+  const n=state.sel.ecDNA, M=state.sel.hyp?1:0;
+  const EGFR=(SC.X_BASE+SC.KAPPA*n)*(1+SC.KHYP*M);
+  const log=Math.log2(1+EGFR);
+  const Tdiv=SC.T_BASE/(1+SC.alpha*log);
+  const vegf=SC.VEGF_BASE*(1+SC.beta*Math.sqrt(EGFR))*(0.2+0.8*M);
+  const migr=SC.MIGR_BASE*(1+SC.delta*EGFR)*(M?2:1);
+  const apop=5e-5/(1+SC.gamma*log);
+  // membrane + nucleus
+  s.appendChild(el('circle',{cx:130,cy:210,r:96,fill:'#fdf6dd',stroke:COL.Tumor,'stroke-width':4}));
+  s.appendChild(el('circle',{cx:130,cy:210,r:52,fill:'#efe2a6',stroke:'#9a8420','stroke-width':2}));
+  s.appendChild(el('text',{x:130,y:128,'text-anchor':'middle','font-size':11,fill:'#7a5c00','font-weight':700})).textContent=`tumour cell · ecDNA = ${n}`;
+  // ecDNA circles in nucleus
+  const rng=mulberry32(n*97+M);
+  for(let i=0;i<n;i++){const a=rng()*6.28,r=rng()*44;
+    s.appendChild(el('circle',{cx:(130+Math.cos(a)*r).toFixed(1),cy:(210+Math.sin(a)*r).toFixed(1),r:2.4,fill:'none',stroke:'#7a5c00','stroke-width':1.4}));}
+  // arrow to EGFR
+  s.appendChild(el('text',{x:130,y:322,'text-anchor':'middle','font-size':11,fill:'#333'})).textContent=`EGFR = (2.89 + 1.21·${n})${M?' × (1+1.5)':''} = ${EGFR.toFixed(0)}`;
+  s.appendChild(el('text',{x:130,y:338,'text-anchor':'middle','font-size':10,fill:M?'#c0392b':'#2980b9'})).textContent=M?'hypoxic: HIF-2α boosts EGFR 2.5× (confounder κ_hyp)':'normoxic';
+  // four effect gauges on the right
+  const eff=[["α  division",`T = ${Tdiv.toFixed(1)} h`,(1-Tdiv/24),"#6a1b9a"],
+             ["β  VEGF",`${vegf.toFixed(0)} amol/h`,Math.min(1,vegf/3000),"#2e7d32"],
+             ["δ  migration",`${migr.toFixed(1)} µm/h`,Math.min(1,migr/40),"#00838f"],
+             ["γ  survival",`apop ↓ ${(1/(1+SC.gamma*log)).toFixed(2)}×`,1-1/(1+SC.gamma*log),"#c0392b"]];
+  eff.forEach((e,i)=>{const y=70+i*80, x=280;
+    s.appendChild(el('text',{x,y:y-6,'font-size':12,fill:'#222','font-weight':700})).textContent=e[0];
+    s.appendChild(el('rect',{x,y,width:210,height:16,rx:8,fill:'#eee'}));
+    s.appendChild(el('rect',{x,y,width:(210*Math.max(0.02,Math.min(1,e[2]))).toFixed(0),height:16,rx:8,fill:e[3]}));
+    s.appendChild(el('text',{x:x+210,y:y+13,'text-anchor':'end','font-size':10,fill:'#fff','font-weight':700})).textContent=e[1];
+    // arrow from cell to gauge
+    s.appendChild(el('line',{x1:226,y1:210,x2:x-6,y2:y+8,stroke:'#bbb','stroke-width':1}));
+  });
+  document.getElementById('cellSub').innerHTML=`ecDNA copies set EGFR (gene dosage); EGFR then drives the four phenotype rates. ${M?'Hypoxia raises EGFR <i>and</i> the outcomes — the confounding the IV design corrects.':'Normoxic cell: no hypoxia confounding.'}`;
+}
+
+/* ====================================================== LEGEND / LOOP ====================================================== */
+function drawLegend(){
+  const L=document.getElementById('legend'); L.innerHTML='';
+  const t=state.t;
+  const live={Tumor:Math.round(FINAL.Tumor*Math.pow(tumRadius(t)/SEC.Rmax,2)),
+    Necrotic:Math.round(FINAL.Necrotic*Math.pow(necRadius(t)/SEC.Rmax,2)),
+    RecruitedImmune:Math.round(FINAL.RecruitedImmune*immActive(t))};
+  TYPES.forEach(tp=>{const cnt=live[tp]!==undefined?live[tp]:FINAL[tp];
+    const d=document.createElement('div'); d.className='it';
+    d.innerHTML=`<span class="sw" style="background:${COL[tp]}"></span><b>${tp}</b> <span style="color:#888">${ROLE[tp]} · ≈${cnt.toLocaleString()}</span>`;
+    L.appendChild(d);});
+}
+function drawLoop(){
+  const box=document.getElementById('loop');
+  [...box.querySelectorAll('.ph')].forEach(e=>e.remove());
+  PHASES.forEach((p,i)=>{const d=document.createElement('span');d.className='ph'+(i===state.phase?' on':'');d.textContent=p;box.appendChild(d);});
+}
+
+/* ====================================================== render + wiring ====================================================== */
+function renderAll(){drawSection();renderTissue();drawCell();drawLegend();drawLoop();
+  document.getElementById('tlabel').textContent=state.t;document.getElementById('time').value=state.t;}
+
+[['t_o2','o2'],['t_vegf','vegf'],['t_vessel','vessel'],['t_immune','immune'],['t_label','label']].forEach(([id,k])=>{
+  document.getElementById(id).addEventListener('change',e=>{state.tog[k]=e.target.checked;renderAll();});});
+
+/* ---- Play / pause: setInterval-based (reliable across browsers + headless) ---- */
+let playTimer=null;
+function setPlaying(on){
+  state.playing=on;
+  document.getElementById('play').textContent=on?'❚❚ Pause':'▶ Play';
+  if(on){
+    if(playTimer) clearInterval(playTimer);
+    playTimer=setInterval(()=>{
+      state.t=(state.t>=300)?0:state.t+3;     // +3 h per tick (≈ 200 ms) → ~20 s for full 300 h growth
+      state.phase=(state.phase+1)%6;          // cycle the 6 per-step phases visibly
+      renderAll();
+    },200);
+  } else {
+    if(playTimer){clearInterval(playTimer); playTimer=null;}
+  }
+}
+document.getElementById('play').addEventListener('click',()=>setPlaying(!state.playing));
+
+/* slider: pause Play and jump to that time */
+document.getElementById('time').addEventListener('input',e=>{
+  if(state.playing) setPlaying(false);
+  state.t=+e.target.value;
+  renderAll();
+});
+
+state.t=150; state.phase=0; renderAll();   // start mid-growth so all structures are visible
+</script>
+</body></html>

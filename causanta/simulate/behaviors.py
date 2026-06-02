@@ -1,0 +1,761 @@
+"""Cell behavioral rules for CAUSANTA.
+
+Implements proliferation (with cell cycle), migration (with chemotaxis),
+death (necrosis, apoptosis, immune kill), and state transitions.
+All rates are per hour (the simulation time unit).
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+from typing import Optional
+
+import numpy as np
+
+from .cells import (
+    ASTROCYTE,
+    ENDOTHELIAL,
+    MICROGLIA,
+    NECROTIC,
+    PERICYTE,
+    RECRUITED_IMMUNE,
+    TUMOR,
+    Cell,
+    CellPopulation,
+    create_cell,
+)
+from .config import CellTypeConfig, SimulationConfig
+from .domain import Domain
+from .ecdna import (
+    compute_egfr_expression,
+    modulate_apoptosis_rate,
+    modulate_division_time,
+    modulate_migration_speed,
+    modulate_vegf_secretion,
+    segregate_ecdna,
+)
+from .environment import EnvironmentFields
+
+# Cell cycle phase fractions of total division time
+PHASE_FRACTIONS = {"G1": 0.40, "S": 0.30, "G2": 0.15, "M": 0.15}
+PHASE_ORDER = ["G1", "S", "G2", "M"]
+
+
+@dataclass
+class LineageRecord:
+    """Record of a single division event."""
+
+    time_hr: float
+    parent_id: int
+    parent_ecDNA_before: int
+    parent_ecDNA_after: int
+    daughter_id: int
+    daughter_ecDNA: int
+    x: int
+    y: int
+    generation: int
+
+
+def _get_phase_boundary(total_time: float, phase: str) -> float:
+    """Cumulative time at end of a phase."""
+    cumulative = 0.0
+    for p in PHASE_ORDER:
+        cumulative += total_time * PHASE_FRACTIONS[p]
+        if p == phase:
+            return cumulative
+    return cumulative
+
+
+def _get_current_phase(cycle_clock: float, total_time: float) -> str:
+    """Determine cell cycle phase from clock position."""
+    cumulative = 0.0
+    for p in PHASE_ORDER:
+        cumulative += total_time * PHASE_FRACTIONS[p]
+        if cycle_clock < cumulative:
+            return p
+    return "M"
+
+
+def sample_environment(
+    cell: Cell,
+    env: EnvironmentFields,
+    domain: Domain,
+    hypoxia_threshold: float,
+) -> None:
+    """Sample local environment at cell position and update cell state."""
+    cell.O2_local = domain.bilinear_interpolate(env.O2, cell.x, cell.y)
+    cell.glucose_local = domain.bilinear_interpolate(env.glucose, cell.x, cell.y)
+    cell.is_hypoxic = cell.O2_local < hypoxia_threshold
+
+
+def tumor_seed_centroid(config: SimulationConfig) -> tuple[float, float] | None:
+    """Centroid of the configured tumor seed positions (None if no seeds)."""
+    seeds = config.tumor_seeds
+    if not seeds:
+        return None
+    cx = sum(s.x for s in seeds) / len(seeds)
+    cy = sum(s.y for s in seeds) / len(seeds)
+    return (cx, cy)
+
+
+def _effective_migration_delta(
+    cell: Cell,
+    tp: CellTypeConfig,
+    tumor_center: tuple[float, float] | None,
+) -> float:
+    """Return the per-copy migration coefficient delta for this cell.
+
+    By default this is the constant ``tp.ecDNA_effect_on_migration``. If
+    ``tp.ecDNA_migration_spatial`` is enabled and a tumor center is supplied,
+    delta becomes a step function of the cell's distance from the tumor-seed
+    centroid (core / margin / infiltrating bands). This lets the simulator
+    embed a KNOWN spatial gradient in the causal effect so that per-zone 2SLS
+    can be tested for its ability to recover it.
+    """
+    if not tp.ecDNA_migration_spatial or tumor_center is None:
+        return tp.ecDNA_effect_on_migration
+    dx = cell.x - tumor_center[0]
+    dy = cell.y - tumor_center[1]
+    dist = (dx * dx + dy * dy) ** 0.5
+    if dist < tp.ecDNA_migration_core_radius_um:
+        return tp.ecDNA_migration_delta_core
+    if dist < tp.ecDNA_migration_margin_radius_um:
+        return tp.ecDNA_migration_delta_margin
+    return tp.ecDNA_migration_delta_infiltrating
+
+
+def update_effective_rates(
+    cell: Cell,
+    tp: CellTypeConfig,
+    rng: np.random.Generator | None = None,
+    egfr_hypoxia_upregulation: float = 1.5,
+    tumor_center: tuple[float, float] | None = None,
+) -> None:
+    """Update EGFR expression and downstream phenotype rates.
+
+    Implements the causal chain:
+        ecDNA_count → EGFR_expression → Phenotypes
+
+    The key insight: ecDNA is the INSTRUMENT (randomized by segregation),
+    EGFR expression is the EXPOSURE (what we measure), and migration/VEGF
+    are the OUTCOMES.
+
+    Also implements "Go or Grow" dynamics:
+    - Migration increased by EGFR expression AND hypoxia
+    - VEGF secretion increased by EGFR expression
+
+    Args:
+        cell: Cell to update
+        tp: Cell type configuration
+        rng: Random number generator
+        egfr_hypoxia_upregulation: Hypoxia effect on EGFR (0=none, 1.5=2.5x)
+    """
+    # Step 1: Compute EGFR expression from ecDNA count + hypoxia
+    # Causal links:
+    #   ecDNA_count (Z) -> EGFR_mRNA  (gene dosage, exogenous)
+    #   is_hypoxic  (M) -> EGFR_mRNA  (HIF-2alpha translation, endogenous component)
+    cell.egfr_expression = compute_egfr_expression(
+        cell.ecDNA_count,
+        is_hypoxic=cell.is_hypoxic,
+        rng=rng,
+        include_noise=True,  # Transcriptional stochasticity
+        hypoxia_upregulation=egfr_hypoxia_upregulation,
+    )
+
+    # Step 2: EGFR expression drives downstream phenotypes
+    # Migration: EGFR effect + hypoxia "Go" response. The per-copy coefficient
+    # delta is normally constant; when spatial heterogeneity is enabled it
+    # varies by zone (core/margin/infiltrating) via _effective_migration_delta.
+    migration_delta = _effective_migration_delta(cell, tp, tumor_center)
+    cell.migration_rate = modulate_migration_speed(
+        tp.migration_speed_um_hr,
+        cell.egfr_expression,  # Use EGFR, not ecDNA directly
+        migration_delta,
+        is_hypoxic=cell.is_hypoxic,
+        hypoxia_invasion_boost=2.0,
+    )
+
+    # VEGF secretion: EGFR effect (sqrt-saturating) x HIF-1alpha hypoxia
+    # upregulation (5x hypoxic vs normoxic). Gating now happens in
+    # modulate_vegf_secretion rather than in environment.py, so the stored
+    # value is the actual rate (relevant for IV/OLS analysis of VEGF).
+    cell.VEGF_secretion = modulate_vegf_secretion(
+        tp.VEGF_secretion_amol_hr,
+        cell.egfr_expression,
+        tp.ecDNA_effect_on_VEGF,
+        is_hypoxic=cell.is_hypoxic,
+    )
+
+
+def check_necrosis(cell: Cell, tp: CellTypeConfig) -> bool:
+    """Check if cell should become necrotic due to sustained hypoxia.
+
+    Returns True if cell transitions to necrotic.
+    """
+    if cell.cell_type == NECROTIC:
+        return False
+    if tp.O2_necrosis_threshold_mmHg <= 0:
+        return False
+
+    if cell.O2_local < tp.O2_necrosis_threshold_mmHg:
+        cell.necrosis_timer_hr += 1.0
+        if cell.necrosis_timer_hr >= tp.necrosis_delay_hr:
+            return True
+    else:
+        cell.necrosis_timer_hr = 0.0
+    return False
+
+
+def apply_necrosis(cell: Cell, config: SimulationConfig) -> None:
+    """Transition cell to necrotic state."""
+    cell.cell_type = NECROTIC
+    cell.cell_type_name = "Necrotic"
+    cell.cell_cycle_phase = "G0"
+    cell.is_quiescent = True
+    necrotic_params = config.cell_types.get(NECROTIC)
+    if necrotic_params:
+        cell.shape_path = necrotic_params.shape_path
+        cell.migration_rate = 0.0
+        cell.VEGF_secretion = 0.0
+
+
+def check_apoptosis(cell: Cell, tp: CellTypeConfig, rng: np.random.Generator) -> bool:
+    """Stochastic apoptosis check. Returns True if cell dies."""
+    if tp.apoptosis_rate_per_hr <= 0:
+        return False
+    rate = modulate_apoptosis_rate(
+        tp.apoptosis_rate_per_hr, cell.egfr_expression, tp.ecDNA_effect_on_survival
+    )
+    return rng.random() < rate
+
+
+def check_immune_kill(
+    tumor_cell: Cell,
+    immune_cell: Cell,
+    config: SimulationConfig,
+    rng: np.random.Generator,
+    dt_hr: float = 1.0,
+) -> bool:
+    """Check if immune cell kills tumor cell this step.
+
+    Implements biologically realistic immunological synapse mechanics:
+
+    1. **Contact Tracking**: Immune cell must maintain contact with same target
+       for synapse_formation_time (1-2 hours) before kill is possible.
+
+    2. **Activation Requirement**: Immune cell must be sufficiently activated
+       (min_activation_for_kill) to attempt killing.
+
+    3. **Exhaustion**: After max_kills_before_exhaustion (~10), killing
+       efficiency drops significantly.
+
+    4. **Probabilistic Killing**: Once synapse forms, kill probability is
+       kill_probability_per_synapse * (1 - exhaustion_penalty).
+
+    Args:
+        tumor_cell: Target tumor cell
+        immune_cell: Attacking immune cell
+        config: Simulation configuration with immune parameters
+        rng: Random number generator
+        dt_hr: Time step in hours
+
+    Returns:
+        True if immune cell kills tumor cell this step
+    """
+    ir = config.immune_recruitment
+
+    # Check hard exhaustion cap
+    if immune_cell.kills_performed >= ir.max_kills_before_exhaustion:
+        immune_cell.contact_target_id = -1
+        immune_cell.contact_duration_hr = 0.0
+        return False
+
+    # Check activation threshold
+    if immune_cell.activation_level < ir.min_activation_for_kill:
+        # Reset contact if not activated enough to kill
+        immune_cell.contact_target_id = -1
+        immune_cell.contact_duration_hr = 0.0
+        return False
+
+    # Check if this is the same target as before
+    if immune_cell.contact_target_id == tumor_cell.cell_id:
+        # Continue tracking contact duration
+        immune_cell.contact_duration_hr += dt_hr
+    else:
+        # New target - reset contact tracking
+        immune_cell.contact_target_id = tumor_cell.cell_id
+        immune_cell.contact_duration_hr = dt_hr
+
+    # Check minimum contact time before any kill is possible
+    if immune_cell.contact_duration_hr < ir.min_contact_for_kill_hr:
+        return False
+
+    # Calculate synapse formation progress
+    synapse_progress = immune_cell.contact_duration_hr / ir.synapse_formation_time_hr
+    synapse_progress = min(synapse_progress, 1.0)
+
+    # Base kill probability scales with synapse formation
+    base_kill_prob = ir.kill_probability_per_synapse * synapse_progress
+
+    # Apply exhaustion penalty
+    exhaustion_penalty = immune_cell.exhaustion_level * ir.exhausted_kill_penalty
+    effective_kill_prob = base_kill_prob * (1.0 - exhaustion_penalty)
+
+    # Scale by activation level
+    effective_kill_prob *= immune_cell.activation_level
+
+    # Scale by time step (probability per hour)
+    p_kill_this_step = effective_kill_prob * dt_hr
+
+    # Attempt kill
+    if rng.random() < p_kill_this_step:
+        # Successful kill - update immune cell state
+        immune_cell.kills_performed += 1
+        immune_cell.exhaustion_level = min(
+            1.0, immune_cell.exhaustion_level + ir.exhaustion_per_kill
+        )
+        # Reset contact for next target
+        immune_cell.contact_target_id = -1
+        immune_cell.contact_duration_hr = 0.0
+        return True
+
+    return False
+
+
+def update_immune_activation(
+    cell: Cell,
+    population: CellPopulation,
+    config: SimulationConfig,
+    dt_hr: float = 1.0,
+) -> None:
+    """Update immune cell activation based on tumor proximity.
+
+    Immune cells become activated when they detect tumor cells nearby
+    (within activation_radius_um). Activation increases killing efficiency
+    and migration toward tumors.
+
+    Without tumor proximity, activation slowly decays.
+    """
+    if cell.cell_type not in (RECRUITED_IMMUNE, MICROGLIA):
+        return
+
+    ir = config.immune_recruitment
+
+    # Check for nearby tumor cells
+    neighbors = population.get_neighbors(cell.x, cell.y, ir.activation_radius_um)
+    tumor_nearby = sum(1 for n in neighbors if n.cell_type == TUMOR)
+
+    if tumor_nearby > 0:
+        # Activate - rate increases with tumor density
+        activation_boost = ir.activation_rate_per_hr * min(tumor_nearby, 5) / 5.0
+        cell.activation_level = min(1.0, cell.activation_level + activation_boost * dt_hr)
+        cell.is_reactive = True
+    else:
+        # Deactivate slowly when no tumor nearby
+        cell.activation_level = max(0.0, cell.activation_level - ir.deactivation_rate_per_hr * dt_hr)
+        if cell.activation_level < 0.1:
+            cell.is_reactive = False
+
+
+def update_immune_exhaustion(
+    cell: Cell,
+    config: SimulationConfig,
+    dt_hr: float = 1.0,
+) -> None:
+    """Update immune cell exhaustion recovery.
+
+    When not actively killing, immune cells slowly recover from exhaustion.
+    Fully exhausted cells take a long time to recover killing capacity.
+    """
+    if cell.cell_type not in (RECRUITED_IMMUNE, MICROGLIA):
+        return
+
+    ir = config.immune_recruitment
+
+    # Only recover if not in contact with target
+    if cell.contact_target_id == -1:
+        recovery = ir.exhaustion_recovery_rate_per_hr * dt_hr
+        cell.exhaustion_level = max(0.0, cell.exhaustion_level - recovery)
+
+
+def compute_immune_chemotaxis(
+    cell: Cell,
+    tp: CellTypeConfig,
+    env: EnvironmentFields,
+    domain: Domain,
+    population: CellPopulation,
+) -> tuple[float, float]:
+    """Compute chemotaxis direction for immune cells.
+
+    Immune cells follow multiple gradients:
+    1. Chemokine gradients (CCL2, CCL5, CXCL10) secreted by tumors
+    2. VEGF gradients (correlate with tumor hypoxia)
+    3. Lactate gradients (high lactate = tumor metabolism)
+
+    Returns:
+        (vx, vy): Chemotaxis velocity components
+    """
+    vx, vy = 0.0, 0.0
+
+    # Chemokine gradient (primary chemoattractant)
+    if tp.chemotaxis_chemokine != 0 and hasattr(env, 'chemokine'):
+        grad = domain.compute_gradient(env.chemokine, cell.x, cell.y)
+        vx += tp.chemotaxis_chemokine * grad[0]
+        vy += tp.chemotaxis_chemokine * grad[1]
+
+    # VEGF gradient (tumor-associated)
+    if tp.chemotaxis_VEGF != 0:
+        grad = domain.compute_gradient(env.VEGF, cell.x, cell.y)
+        vx += tp.chemotaxis_VEGF * grad[0]
+        vy += tp.chemotaxis_VEGF * grad[1]
+
+    # Lactate gradient (tumor metabolism marker)
+    if hasattr(env, 'lactate'):
+        grad = domain.compute_gradient(env.lactate, cell.x, cell.y)
+        # Immune cells attracted to high lactate (tumor regions)
+        vx += 0.3 * grad[0]
+        vy += 0.3 * grad[1]
+
+    return vx, vy
+
+
+def can_proliferate(
+    cell: Cell,
+    tp: CellTypeConfig,
+    population: CellPopulation,
+) -> bool:
+    """Check resource gate for proliferation eligibility.
+
+    Implements homeostatic constraints for adult brain tissue:
+    - Microglia: only proliferate when activated (near tumor/inflammation)
+    - Astrocytes: only proliferate when reactive (near tumor/injury)
+    - Endothelial: only proliferate when sprouting (VEGF-stimulated angiogenesis)
+    - Other normal cells: standard resource-gated proliferation
+    """
+    if not tp.can_divide:
+        return False
+    if tp.max_generations >= 0 and cell.generation >= tp.max_generations:
+        return False
+    if cell.O2_local < tp.O2_prolif_threshold_mmHg:
+        return False
+    if cell.glucose_local < tp.glucose_prolif_threshold_mM:
+        return False
+
+    # Homeostatic constraints: normal brain cells are quiescent unless activated
+    # Microglia require activation (chemokine/inflammation) to proliferate
+    if cell.cell_type == MICROGLIA:
+        if not cell.is_reactive and cell.activation_level < 0.3:
+            return False
+
+    # Astrocytes require reactive state (tumor proximity) to proliferate
+    if cell.cell_type == ASTROCYTE:
+        if not cell.is_reactive:
+            return False
+
+    # Endothelial cells require VEGF stimulus (is_reactive set by vegf_above_threshold rule)
+    if cell.cell_type == ENDOTHELIAL:
+        if not cell.is_reactive:
+            return False
+
+    return True
+
+
+def advance_cell_cycle(
+    cell: Cell,
+    tp: CellTypeConfig,
+    population: CellPopulation,
+    config: SimulationConfig,
+    rng: np.random.Generator,
+    current_time_hr: float,
+) -> Optional[LineageRecord]:
+    """Advance cell cycle by 1 hour. Returns LineageRecord if division occurred."""
+    if not tp.can_divide or cell.cell_type == NECROTIC:
+        return None
+
+    eligible = can_proliferate(cell, tp, population)
+
+    # Cell in G0: check if conditions allow re-entry
+    if cell.cell_cycle_phase == "G0":
+        if not eligible:
+            cell.is_quiescent = True
+            return None
+        # Enter G1
+        cell.cell_cycle_phase = "G1"
+        cell.cycle_clock_hr = 0.0
+        base_time = tp.division_time_mean_hr
+        effective_time = modulate_division_time(
+            base_time, cell.egfr_expression, tp.ecDNA_effect_on_division
+        )
+        cell.total_cycle_time_hr = max(
+            1.0, rng.normal(effective_time, tp.division_time_std_hr)
+        )
+        cell.is_quiescent = False
+        return None
+
+    # Active cycling: advance clock
+    old_phase = cell.cell_cycle_phase
+
+    # If in S/G2/M and resources drop, arrest (clock pauses)
+    if old_phase in ("S", "G2", "M") and not eligible:
+        return None
+
+    # If in G1 and resources drop, go to G0
+    if old_phase == "G1" and not eligible:
+        cell.cell_cycle_phase = "G0"
+        cell.is_quiescent = True
+        return None
+
+    cell.cycle_clock_hr += 1.0
+    new_phase = _get_current_phase(cell.cycle_clock_hr, cell.total_cycle_time_hr)
+
+    # Check if M-phase is complete
+    if cell.cycle_clock_hr >= cell.total_cycle_time_hr:
+        return _execute_division(cell, tp, population, config, rng, current_time_hr)
+
+    cell.cell_cycle_phase = new_phase
+    return None
+
+
+def _execute_division(
+    parent: Cell,
+    tp: CellTypeConfig,
+    population: CellPopulation,
+    config: SimulationConfig,
+    rng: np.random.Generator,
+    current_time_hr: float,
+) -> Optional[LineageRecord]:
+    """Execute cell division, create daughter, partition ecDNA."""
+    # Find empty adjacent position — tumor cells can displace neighbors
+    # Use shape-aware collision detection
+    if not tp.contact_inhibited:
+        result = population.find_division_position_with_displacement(
+            parent.x, parent.y, parent.diameter, parent.cell_id, rng,
+            shape_path=parent.shape_path, angle=parent.angle,
+        )
+    else:
+        positions = population.get_adjacent_empty_positions(
+            parent.x, parent.y, parent.diameter, rng,
+            shape_path=parent.shape_path, angle=parent.angle,
+        )
+        result = positions[0] if positions else None
+
+    if result is None:
+        # Contact inhibition: enter G0
+        parent.cell_cycle_phase = "G0"
+        parent.is_quiescent = True
+        return None
+
+    daughter_x, daughter_y = result
+
+    # ecDNA segregation
+    parent_ecDNA_before = parent.ecDNA_count
+    parent_new, daughter_ecDNA = segregate_ecdna(
+        parent.ecDNA_count, tp.ecDNA_segregation_p, rng
+    )
+    parent.ecDNA_count = parent_new
+
+    # Create daughter cell
+    daughter_id = population.allocate_id()
+    daughter = create_cell(
+        cell_id=daughter_id,
+        parent_id=parent.cell_id,
+        cell_type=parent.cell_type,
+        x=daughter_x,
+        y=daughter_y,
+        time_born_hr=current_time_hr,
+        type_params=tp,
+        rng=rng,
+        ecDNA_count=daughter_ecDNA,
+        ecDNA_cargo=parent.ecDNA_cargo,
+        generation=parent.generation + 1,
+        cell_cycle_phase="G1",
+    )
+    population.add_cell(daughter)
+
+    # Reset parent
+    parent.generation += 1
+    parent.cell_cycle_phase = "G1"
+    parent.cycle_clock_hr = 0.0
+
+    # Update effective rates for both cells (computes EGFR expression from new ecDNA counts)
+    egfr_hyp = config.environment.egfr_hypoxia_upregulation
+    center = tumor_seed_centroid(config)
+    update_effective_rates(parent, tp, rng, egfr_hypoxia_upregulation=egfr_hyp, tumor_center=center)
+    update_effective_rates(daughter, tp, rng, egfr_hypoxia_upregulation=egfr_hyp, tumor_center=center)
+
+    # Now compute division time using EGFR expression (proper causal chain)
+    base_time = tp.division_time_mean_hr
+    parent.total_cycle_time_hr = max(
+        1.0,
+        rng.normal(
+            modulate_division_time(base_time, parent.egfr_expression, tp.ecDNA_effect_on_division),
+            tp.division_time_std_hr,
+        ),
+    )
+
+    return LineageRecord(
+        time_hr=current_time_hr,
+        parent_id=parent.cell_id,
+        parent_ecDNA_before=parent_ecDNA_before,
+        parent_ecDNA_after=parent_new,
+        daughter_id=daughter_id,
+        daughter_ecDNA=daughter_ecDNA,
+        x=parent.x,
+        y=parent.y,
+        generation=daughter.generation,
+    )
+
+
+def compute_migration(
+    cell: Cell,
+    tp: CellTypeConfig,
+    env: EnvironmentFields,
+    domain: Domain,
+    population: CellPopulation,
+    rng: np.random.Generator,
+) -> None:
+    """Compute and apply migration for a single cell."""
+    if cell.migration_rate <= 0 or cell.cell_type == NECROTIC:
+        return
+
+    # Pericytes: constrained to stay near endothelial cells
+    if cell.cell_type == PERICYTE:
+        neighbors = population.get_neighbors(cell.x, cell.y, 30)
+        has_endo = any(n.cell_type == ENDOTHELIAL for n in neighbors)
+        if not has_endo:
+            return
+
+    # Compute direction
+    # 1. Persistence (directional memory)
+    persistence = math.exp(-1.0 / max(tp.migration_persistence_hr, 0.01))
+    vx = persistence * math.cos(cell.persist_direction)
+    vy = persistence * math.sin(cell.persist_direction)
+
+    # 2. Chemotaxis gradients
+    if tp.chemotaxis_O2 != 0:
+        grad = domain.compute_gradient(env.O2, cell.x, cell.y)
+        vx += tp.chemotaxis_O2 * grad[0]
+        vy += tp.chemotaxis_O2 * grad[1]
+
+    if tp.chemotaxis_VEGF != 0:
+        grad = domain.compute_gradient(env.VEGF, cell.x, cell.y)
+        vx += tp.chemotaxis_VEGF * grad[0]
+        vy += tp.chemotaxis_VEGF * grad[1]
+
+    # 3. Immune cell chemotaxis (lactate + VEGF as tumor-proximity signals)
+    if cell.cell_type in (RECRUITED_IMMUNE, MICROGLIA) and cell.is_reactive:
+        cx, cy = compute_immune_chemotaxis(cell, tp, env, domain, population)
+        vx += cx
+        vy += cy
+
+    # 4. Haptotaxis (ECM gradient)
+    if tp.haptotaxis_ECM != 0:
+        grad = domain.compute_gradient(env.ECM_density, cell.x, cell.y)
+        vx += tp.haptotaxis_ECM * grad[0]
+        vy += tp.haptotaxis_ECM * grad[1]
+
+    # 5. Random noise
+    noise_angle = rng.uniform(0, 2 * math.pi)
+    noise_strength = 0.3
+    vx += noise_strength * math.cos(noise_angle)
+    vy += noise_strength * math.sin(noise_angle)
+
+    # Compute direction angle
+    direction = math.atan2(vy, vx)
+
+    # Displacement
+    speed = cell.migration_rate
+    dx = speed * math.cos(direction)
+    dy = speed * math.sin(direction)
+
+    new_x = int(round(cell.x + dx))
+    new_y = int(round(cell.y + dy))
+
+    # Clamp to domain
+    new_x, new_y = domain.clamp_position(new_x, new_y)
+
+    # Volume exclusion: check collision at target using shape-aware detection
+    collision = population.has_neighbor_within(
+        new_x, new_y,
+        cell.diameter * 0.8,  # Search radius
+        exclude_id=cell.cell_id,
+        query_shape=cell.shape_path,
+        query_diameter=cell.diameter,
+        query_angle=direction,  # Use movement direction as new angle
+    )
+    if not collision:
+        old_x, old_y = cell.x, cell.y
+        cell.x = new_x
+        cell.y = new_y
+        cell.angle = direction  # Update cell orientation to match movement
+        population.update_position(cell, old_x, old_y)
+
+    # Update persistence direction
+    cell.persist_direction = direction
+
+
+def check_state_transitions(
+    cell: Cell,
+    tp: CellTypeConfig,
+    env: EnvironmentFields,
+    domain: Domain,
+    population: CellPopulation,
+    config: SimulationConfig,
+    rng: np.random.Generator,
+) -> None:
+    """Check and apply state transition rules (Table 5.4)."""
+    if cell.cell_type == NECROTIC:
+        return
+
+    for rule in tp.transition_rules:
+        triggered = False
+
+        if rule.condition == "adjacent_to_tumor":
+            neighbors = population.get_neighbors(cell.x, cell.y, cell.diameter * 2)
+            triggered = any(n.cell_type == TUMOR and n.cell_id != cell.cell_id for n in neighbors)
+
+        elif rule.condition == "vegf_above_threshold":
+            local_vegf = domain.bilinear_interpolate(env.VEGF, cell.x, cell.y)
+            triggered = local_vegf > config.angiogenesis.angiogenesis_threshold_nM
+
+        elif rule.condition == "chemokine_above_threshold":
+            # Approximate chemokine as proportional to nearby tumor/necrotic cell density
+            neighbors = population.get_neighbors(cell.x, cell.y, 100)
+            tumor_nearby = sum(1 for n in neighbors if n.cell_type in (TUMOR, NECROTIC))
+            triggered = tumor_nearby > 2
+
+        elif rule.condition == "tgfb_above_threshold":
+            # Approximate TGF-beta from tumor density
+            neighbors = population.get_neighbors(cell.x, cell.y, 80)
+            tumor_nearby = sum(1 for n in neighbors if n.cell_type == TUMOR)
+            triggered = tumor_nearby > 5
+
+        if triggered and rng.random() < rule.rate_per_hr:
+            if rule.subtype_flag:
+                cell.is_reactive = True
+                cell.activation_level = min(cell.activation_level + 0.2, 1.0)
+                # Microglia: increase migration when activated
+                if cell.cell_type == MICROGLIA and rule.subtype_flag == "activated":
+                    cell.migration_rate = tp.migration_speed_um_hr * 1.5
+
+
+def clear_necrotic_cells(
+    population: CellPopulation,
+    config: SimulationConfig,
+    rng: np.random.Generator,
+) -> list[int]:
+    """Stochastic lysis of necrotic cells. Returns list of removed cell IDs."""
+    necrotic_tp = config.cell_types.get(NECROTIC)
+    if necrotic_tp is None:
+        return []
+
+    lysis_rate = necrotic_tp.lysis_rate_per_hr
+    to_remove: list[int] = []
+    for cell in population.iter_by_type(NECROTIC):
+        if rng.random() < lysis_rate:
+            to_remove.append(cell.cell_id)
+
+    for cid in to_remove:
+        population.remove_cell(cid)
+    return to_remove
